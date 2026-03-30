@@ -1280,6 +1280,16 @@ cp /etc/resolv.conf /var/spool/postfix/etc/resolv.conf
 cp /root/item/move/conf/nuopanel.sh /etc/profile.d
 /root/venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
 add_backup_cronjobs
+
+# Run Django migrations to create all database tables
+echo "Running Django migrations to create database schema..."
+/root/venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py migrate --noinput
+if [ $? -eq 0 ]; then
+    echo "✓ Database migrations completed successfully"
+else
+    echo "⚠ Warning: Database migrations failed, but continuing installation..."
+fi
+
 sudo apt-get install libwww-perl -y
 sudo systemctl stop systemd-resolved >/dev/null 2>&1
 sudo systemctl disable systemd-resolved >/dev/null 2>&1
