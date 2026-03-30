@@ -9,13 +9,7 @@
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
 NC='\033[0m'
-
-# Configuracoes
-LOG_FILE="${LOG_FILE:-/var/log/nuopanel/install.log}"
-VERBOSE="${VERBOSE:-0}"
-WORK_DIR="/root/nuopanel-install"
 
 # Verificar root
 if [ "$EUID" -ne 0 ]; then
@@ -23,35 +17,35 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+# Configuracoes
+WORK_DIR="/root/nuopanel-install"
+LOG_FILE="/var/log/nuopanel/install.log"
+
 # Criar diretorios
 mkdir -p "$WORK_DIR"
 mkdir -p "$(dirname "$LOG_FILE")"
 
 echo "================================================================================"
-echo "NuoPanel Installation Started: $(date '+%Y-%m-%d %H:%M:%S')" >> "$LOG_FILE"
-echo "Version: 2.0.0" >> "$LOG_FILE"
+echo "               NUOPANEL INSTALLATION v2.0.0"
 echo "================================================================================"
+echo "Inicio: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$LOG_FILE"
 echo ""
-
-# Baixar arquivos principais
-echo -e "${GREEN}Baixando arquivos de configuracao...${NC}"
 
 cd "$WORK_DIR"
 
-wget -q -O config.env https://raw.githubusercontent.com/SolusTec/NuoPanel/main/config.env
-wget -q -O common-functions.sh https://raw.githubusercontent.com/SolusTec/NuoPanel/main/common-functions.sh
+# Baixar arquivos base
+echo -e "${GREEN}Baixando arquivos de configuracao...${NC}"
+wget -q -O config.env https://raw.githubusercontent.com/SolusTec/NuoPanel/main/config.env || { echo -e "${RED}Erro ao baixar config.env${NC}"; exit 1; }
+wget -q -O common-functions.sh https://raw.githubusercontent.com/SolusTec/NuoPanel/main/common-functions.sh || { echo -e "${RED}Erro ao baixar common-functions.sh${NC}"; exit 1; }
 
 source config.env
 source common-functions.sh
 
-# Baixar scripts modulares
-log_info "Baixando scripts modulares..."
-
-# Lista completa dos scripts (NOMES EXATOS)
+# Scripts na ORDEM CORRETA
 declare -a SCRIPTS=(
     "01-system-setup.sh"
-    "03-mariadb.sh"           # ← MOVIDO PARA ANTES (gera senha)
-    "02-openlitespeed.sh"     # ← AGORA VEM DEPOIS (usa senha)
+    "03-mariadb.sh"        # ANTES - gera senha
+    "02-openlitespeed.sh"  # DEPOIS - usa senha
     "04-python-venv.sh"
     "05-extract-panel.sh"
     "06-mail-ftp-dns.sh"
@@ -60,33 +54,35 @@ declare -a SCRIPTS=(
     "09-finalize.sh"
 )
 
-# Baixar cada script
+# Baixar scripts
+log_info "Baixando scripts modulares..."
 for script in "${SCRIPTS[@]}"; do
-    log_info "Baixando ${script}..."
-    wget -q -O "${script}" "${REPO_BASE}/scripts/${script}"
-    
-    if [ $? -ne 0 ]; then
-        log_error "Falha ao baixar ${script}"
-        exit 1
-    fi
-    
+    wget -q -O "${script}" "${REPO_BASE}/scripts/${script}" || { log_error "Falha: ${script}"; exit 1; }
     chmod +x "${script}"
 done
-
-log_success "Scripts baixados com sucesso"
+log_success "Scripts baixados"
 
 # Executar instalacao
-log_info "Iniciando instalacao NuoPanel v${NUOPANEL_VERSION}..."
+echo ""
+log_info "Iniciando instalacao..."
 echo ""
 
 for script in "${SCRIPTS[@]}"; do
-    log_info "Executando ${script}..."
+    echo "================================================================================"
+    log_info ">>> Executando: ${script}"
+    echo "================================================================================"
+    
     bash "${script}"
     
     if [ $? -ne 0 ]; then
-        log_error "Falha ao executar ${script}"
+        log_error "FALHA em ${script}"
         exit 1
     fi
+    
+    echo ""
 done
 
-log_success "Instalacao concluida!"
+echo "================================================================================"
+log_success "INSTALACAO CONCLUIDA COM SUCESSO!"
+echo "================================================================================"
+echo "Fim: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$LOG_FILE"
