@@ -1283,7 +1283,7 @@ add_backup_cronjobs
 
 # Run Django migrations to create all database tables
 echo "Running Django migrations to create database schema..."
-/root/venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py migrate --noinput
+/root/venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py migrate --fake users 0005 --noinput
 if [ $? -eq 0 ]; then
     echo "✓ Database migrations completed successfully"
 else
