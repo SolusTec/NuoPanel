@@ -49,23 +49,46 @@ source common-functions.sh
 # Baixar scripts modulares
 log_info "Baixando scripts modulares..."
 
-for i in 01 02 03 04 05 06 07 08 09; do
-    wget -q -O "${i}-script.sh" "${REPO_BASE}/scripts/${i}-*.sh"
-    chmod +x "${i}-script.sh"
+# Lista completa dos scripts (NOMES EXATOS)
+declare -a SCRIPTS=(
+    "01-system-setup.sh"
+    "02-openlitespeed.sh"
+    "03-mariadb.sh"
+    "04-python-venv.sh"
+    "05-extract-panel.sh"
+    "06-mail-ftp-dns.sh"
+    "07-ssl-config.sh"
+    "08-softaculous.sh"
+    "09-finalize.sh"
+)
+
+# Baixar cada script
+for script in "${SCRIPTS[@]}"; do
+    log_info "Baixando ${script}..."
+    wget -q -O "${script}" "${REPO_BASE}/scripts/${script}"
+    
+    if [ $? -ne 0 ]; then
+        log_error "Falha ao baixar ${script}"
+        exit 1
+    fi
+    
+    chmod +x "${script}"
 done
+
+log_success "Scripts baixados com sucesso"
 
 # Executar instalacao
 log_info "Iniciando instalacao NuoPanel v${NUOPANEL_VERSION}..."
+echo ""
 
-bash 01-script.sh
-bash 02-script.sh  
-bash 03-script.sh
-bash 04-script.sh
-bash 05-script.sh
-bash 06-script.sh
-bash 07-script.sh
-bash 08-script.sh
-bash 09-script.sh
+for script in "${SCRIPTS[@]}"; do
+    log_info "Executando ${script}..."
+    bash "${script}"
+    
+    if [ $? -ne 0 ]; then
+        log_error "Falha ao executar ${script}"
+        exit 1
+    fi
+done
 
 log_success "Instalacao concluida!"
-
