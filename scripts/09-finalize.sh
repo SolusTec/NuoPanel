@@ -12,7 +12,7 @@ main() {
     save_os_info
     run_migrations
     reset_admin_password
-    install_olsapp
+    install_nuopanel_apps
     add_cronjobs
     copy_postfix_resolv
     copy_banner_ssh
@@ -50,7 +50,7 @@ reset_admin_password() {
     log_success "Senha admin configurada"
 }
 
-install_olsapp() {
+install_nuopanel_apps() {
     log_info "Instalando aplicativos do painel..."
     "$VENV_PATH/bin/python" "$PANEL_DIR/manage.py" install_nuopanel
     log_success "Aplicativos instalados"
@@ -93,11 +93,25 @@ copy_banner_ssh() {
 }
 
 run_external_scripts() {
-    log_info "Executando scripts externos..."
-    curl -sSL "$OLSPANEL_RE_CONFIG" | sed 's/\r$//' | bash
-    curl -sSL "$OLSPANEL_SSL_SETUP" | sed 's/\r$//' | bash
-    curl -sSL "$OLSPANEL_SWAP" | sed 's/\r$//' | bash
-    curl -sSL "$OLSPANEL_DB_UPDATE" | sed 's/\r$//' | bash
+    log_info "Executando scripts auxiliares..."
+    
+    # 1. Substituir placeholders de senha
+    log_info "Substituindo placeholders de senha..."
+    curl -sSL "$REPLACE_PASSWORDS_SCRIPT" | bash
+    
+    # 2. Gerar SSL autoassinado
+    log_info "Gerando certificado SSL autoassinado..."
+    curl -sSL "$GENERATE_SSL_SCRIPT" | bash
+    
+    # 3. Criar swap
+    log_info "Configurando swap..."
+    curl -sSL "$CREATE_SWAP_SCRIPT" | bash
+    
+    # 4. Instalar plugins
+    log_info "Instalando plugins..."
+    curl -sSL "$INSTALL_PLUGINS_SCRIPT" | bash
+    
+    log_success "Scripts auxiliares executados"
 }
 
 restart_all_services() {
