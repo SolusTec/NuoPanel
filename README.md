@@ -46,7 +46,12 @@ SolusTec/NuoPanel/
 ├── config.env              # Configuracao centralizada
 ├── common-functions.sh     # Funcoes compartilhadas
 ├── assets/                 # Arquivos grandes
-├── config/                 # Arquivos de configuracao
+├── config/
+│   ├── ubuntu.txt         # Python requirements (Ubuntu)
+│   ├── centos.txt         # Python requirements (CentOS/Alma/Rocky)
+│   ├── banner-ssh.sh      # Banner SSH
+│   ├── httpd_config.conf  # Config OpenLiteSpeed
+│   └── vhosts/            # Virtual hosts
 └── scripts/                # Scripts modulares de instalacao
 ```
 

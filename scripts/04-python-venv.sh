@@ -44,9 +44,9 @@ install_pip() {
 
 install_python_dependencies_in_venv() {
     log_info "Baixando requirements.txt..."
-    wget -O "$WORK_DIR/ub24req.txt" "$REQUIREMENTS_URL"
+    wget -O "$WORK_DIR/ubuntu.txt" "$REQUIREMENTS_UBUNTU_URL"
     
-    if [ ! -f "$WORK_DIR/ub24req.txt" ]; then
+    if [ ! -f "$WORK_DIR/ubuntu.txt" ]; then
         log_error "Falha ao baixar requirements.txt"
         return 1
     fi
@@ -62,7 +62,7 @@ install_python_dependencies_in_venv() {
     
     log_info "Atualizando pip e instalando pacotes..."
     "$VENV_PATH/bin/python3" -m pip install --upgrade pip
-    "$VENV_PATH/bin/python3" -m pip install -r "$WORK_DIR/ub24req.txt"
+    "$VENV_PATH/bin/python3" -m pip install -r "$WORK_DIR/ubuntu.txt"
     
     deactivate
     

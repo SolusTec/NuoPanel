@@ -179,14 +179,7 @@ main() {
     # Criar banco e usuario do painel
     create_database_and_user "$root_password" "$DB_NAME" "$DB_USER"
     
-    # Importar dump SQL (se existir)
-    local dump_file="${ITEM_DIR}/panel_db.sql"
-    if [ -f "$dump_file" ]; then
-        import_database "$root_password" "$DB_NAME" "$dump_file"
-    else
-        log_warning "Arquivo panel_db.sql nao encontrado em $dump_file"
-    fi
-    
+    log_info "Database criado. Schema sera criado via Django migrations."
     log_success "MariaDB configurado"
 }
 
