@@ -50,8 +50,8 @@ log_info "Baixando scripts modulares..."
 # Lista completa dos scripts (NOMES EXATOS)
 declare -a SCRIPTS=(
     "01-system-setup.sh"
-    "02-openlitespeed.sh"
-    "03-mariadb.sh"
+    "03-mariadb.sh"           # ← MOVIDO PARA ANTES (gera senha)
+    "02-openlitespeed.sh"     # ← AGORA VEM DEPOIS (usa senha)
     "04-python-venv.sh"
     "05-extract-panel.sh"
     "06-mail-ftp-dns.sh"
