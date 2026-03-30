@@ -1,87 +1,56 @@
-# NuoPanel
+# 🚀 OLSpanel - Free OpenLiteSpeed Web Hosting Control Panel
 
-Sistema de gerenciamento de hospedagem web baseado em OpenLiteSpeed, Django e MariaDB.
-
-## Requisitos
-
-- Ubuntu 22.04 LTS ou 24.04 LTS
-- Servidor limpo (fresh install)
-- Acesso root
-
-## Instalacao Rapida
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/install.sh)
-```
-
-## Caracteristicas
-
-- **OpenLiteSpeed** - Servidor web de alta performance
-- **Django** - Painel de controle web
-- **MariaDB** - Banco de dados
-- **PHP 7.4 - 8.5** - Multiplas versoes PHP
-- **Postfix + Dovecot** - Servidor de email
-- **Pure-FTPd** - Servidor FTP
-- **PowerDNS** - Servidor DNS
-- **Let's Encrypt** - Certificados SSL gratuitos
-- **Softaculous** - Instalador de aplicacoes
-
-## Configuracao
-
-Todas as URLs e configuracoes podem ser personalizadas editando o arquivo `config.env`:
-
-```bash
-# Versoes PHP a instalar
-PHP_VERSIONS="74 80 81 82 83 84 85"
-
-# Versao PHP padrao
-PHP_DEFAULT_VERSION="81"
-```
-
-## Estrutura do Projeto
-
-```
-SolusTec/NuoPanel/
-├── install.sh              # Instalador principal
-├── config.env              # Configuracao centralizada
-├── common-functions.sh     # Funcoes compartilhadas
-├── assets/                 # Arquivos grandes
-├── config/
-│   ├── ubuntu.txt         # Python requirements (Ubuntu)
-│   ├── centos.txt         # Python requirements (CentOS/Alma/Rocky)
-│   ├── banner-ssh.sh      # Banner SSH
-│   ├── httpd_config.conf  # Config OpenLiteSpeed
-│   └── vhosts/            # Virtual hosts
-└── scripts/                # Scripts modulares de instalacao
-```
-
-## Apos a Instalacao
-
-O painel estara disponivel em:
-
-```
-URL: https://SEU-IP:PORTA
-Usuario: admin
-Senha: (exibida no final da instalacao)
-```
-
-## Atualizacao
-
-Para atualizar o painel:
-
-```bash
-nuopanel-update
-```
-
-## Suporte
-
-- GitHub: https://github.com/SolusTec/NuoPanel
-- Issues: https://github.com/SolusTec/NuoPanel/issues
-
-## Licenca
-
-Este projeto e um fork customizado do OLSPanel.
+`OLSpanel` is a **free** and lightweight control panel designed for managing OpenLiteSpeed web hosting with ease. With just a few clicks, you can install and start managing your web server effortlessly.
 
 ---
 
-**Desenvolvido por SolusTec**
+## 📌 Features
+✅ **Account Management** – allow users to set and manage disk and bandwidth limits according to their selected package.  
+✅ **OpenLiteSpeed Web Server** – Fast and efficient web server for optimized performance.  
+✅ **MariaDB Database** – Reliable and high-performance database management.  
+✅ **Auto SSL** – Secure your websites with Let's Encrypt SSL.  
+✅ **FTP Server** – Built-in FTP management for easy file transfers.  
+✅ **DNS Server (PowerDNS)** – Integrated DNS management for domains.  
+✅ **phpMyAdmin** – Database management made simple.  
+✅ **Email Support** – Send and receive emails effortlessly.  
+✅ **File Manager** – Web-based file management for convenience.  
+✅ **PHP Management** – Configure and switch PHP versions easily.  
+✅ **Firewall Protection** – FirewallD & ConfigServer Firewall (CSF) integration.  
+✅ **One-Click Backups & Restores** – Securely back up and restore your data.  
+
+---
+
+## 🖥️ Supported Operating Systems
+`OLSpanel` is currently supported on following OS:
+
+
+- ✅ **Ubuntu 20.04 (Focal Fossa)**
+- ✅ **Ubuntu 22.04 (Jammy Jellyfish)**
+- ✅ **Ubuntu 24.04 (Noble Numbat)**
+- ✅ **CentOS 8/9**
+- ✅ **AlmaLinux 8/9**
+- ✅ **Rocky Linux 8/9**
+- ✅ **Debian 11/12**
+
+> ℹ️ *Support for additional Linux distributions is coming soon!*
+
+---
+
+## 🖼️ Screenshots
+
+Here are some screenshots of the **OLSpanel** control panel:
+
+*OpenLiteSpeed Web Server admin/whm Dashboard*
+![whm](https://github.com/osmanfc/olspanel/blob/8b2739c875281dd464954f014db5bd0f8c6e2dc3/screenshort/whm.png)  
+
+*User Panel  Interface*
+![User panel Interface](https://github.com/osmanfc/olspanel/blob/935bdea1e1f74afbbc6e44d8e206d34593f2c788/screenshort/user.png)  
+
+
+
+
+
+## 📥 Installation
+Run the following command to install `OLSpanel`:
+```sh
+bash <(curl -fsSL https://olspanel.com/install.sh || wget -qO- https://olspanel.com/install.sh)
