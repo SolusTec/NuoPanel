@@ -1,125 +1,104 @@
 #!/bin/bash
 ################################################################################
-# NuoPanel - 05 Extract Panel
-# Descricao: Extracao e configuracao dos arquivos do painel
+# Script 05 - Extrair Painel Django
 ################################################################################
 
-# Carregar funcoes comuns
-source /root/nuopanel-install/common-functions.sh 2>/dev/null || \
-    source "$(dirname "$0")/common-functions.sh" 2>/dev/null || \
-    { echo "ERRO: common-functions.sh nao encontrado"; exit 1; }
+source /root/nuopanel-install/common-functions.sh
+source /root/nuopanel-install/config.env
 
-# Carregar configuracoes
-source /root/nuopanel-install/config.env 2>/dev/null || \
-    source "$(dirname "$0")/config.env" 2>/dev/null || \
-    { echo "ERRO: config.env nao encontrado"; exit 1; }
-
-################################################################################
-# Funcoes
-################################################################################
-
-download_install_files() {
-    log_info "Baixando arquivos de instalacao..."
+main() {
+    log_info "Extraindo painel Django..."
     
-    # Baixar install.zip
-    if wget -O "$ITEM_DIR/install.zip" "$INSTALL_ZIP_URL" 2>/dev/null; then
-        unzip -q "$ITEM_DIR/install.zip" -d "$ITEM_DIR/"
-        log_success "install.zip extraido"
-    else
-        log_warning "Falha ao baixar install.zip"
-    fi
+    download_install_zip
+    download_panel_zip
+    extract_panel
+    set_permissions
+    copy_mysql_password
+    
+    log_success "Painel extraido"
 }
 
-unzip_and_move() {
-    log_info "Baixando panel_latest.zip..."
+download_install_zip() {
+    log_info "Baixando install.zip..."
+    wget -q -O "$ITEM_DIR/install.zip" "$INSTALL_ZIP_URL" 2>/dev/null
     
-    if ! wget -O "$ITEM_DIR/panel_setup.zip" "$PANEL_ZIP_URL"; then
+    if [ $? -ne 0 ]; then
+        log_warning "Falha ao baixar install.zip"
+        return 1
+    fi
+    
+    unzip -q "$ITEM_DIR/install.zip" -d "$ITEM_DIR/"
+    log_success "install.zip extraido"
+}
+
+download_panel_zip() {
+    log_info "Baixando panel_latest.zip..."
+    wget -q -O "$ITEM_DIR/panel_setup.zip" "$PANEL_ZIP_URL"
+    
+    if [ $? -ne 0 ]; then
         log_error "Falha ao baixar panel_latest.zip"
         return 1
     fi
     
-    local zip_file="$ITEM_DIR/panel_setup.zip"
+    log_success "panel_latest.zip baixado"
+}
+
+extract_panel() {
     local extract_dir="$ITEM_DIR/cp"
     local target_dir="/usr/local/lsws/Example/html"
     
-    if [ ! -f "$zip_file" ]; then
-        log_error "Arquivo $zip_file nao existe"
-        return 1
-    fi
+    log_info "Extraindo painel para $target_dir..."
     
-    if [ ! -d "$target_dir" ]; then
-        mkdir -p "$target_dir"
-    fi
+    mkdir -p "$extract_dir"
+    mkdir -p "$target_dir"
     
-    if [ ! -d "$extract_dir" ]; then
-        mkdir -p "$extract_dir"
-    fi
-    
-    log_info "Extraindo panel_setup.zip..."
-    unzip -q -o "$zip_file" -d "$extract_dir"
-    
-    if [ $? -ne 0 ]; then
-        log_error "Falha ao extrair panel_setup.zip"
-        return 1
-    fi
-    
-    log_info "Movendo arquivos para $target_dir..."
+    unzip -q "$ITEM_DIR/panel_setup.zip" -d "$extract_dir"
     mv "$extract_dir"/* "$target_dir"
     
-    log_success "Arquivos do painel extraidos"
+    # Remover arquivos default
+    rm -f "$target_dir/index.html" "$target_dir/phpinfo.php" "$target_dir/upload.html" "$target_dir/upload.php"
+    
+    log_success "Painel extraido"
 }
 
-remove_files_in_html_folder() {
-    local target_dir="/usr/local/lsws/Example/html"
-    local files_to_remove="index.html phpinfo.php upload.html upload.php"
+set_permissions() {
+    log_info "Configurando permissoes..."
     
-    log_info "Removendo arquivos padrao do OpenLiteSpeed..."
-    
-    for file in $files_to_remove; do
-        file_path="$target_dir/$file"
-        if [ -f "$file_path" ]; then
-            rm -f "$file_path"
-            log_debug "Removido: $file"
-        fi
-    done
-    
-    log_success "Arquivos padrao removidos"
-}
-
-set_ownership_and_permissions() {
-    log_info "Configurando permissoes e propriedades..."
-    
-    sudo chown -R www-data:www-data /usr/local/lsws/Example/html/phpmyadmin 
-    sudo chmod -R 755 /usr/local/lsws/Example/html/phpmyadmin 
+    sudo chown -R www-data:www-data /usr/local/lsws/Example/html/phpmyadmin 2>/dev/null || true
+    sudo chmod -R 755 /usr/local/lsws/Example/html/phpmyadmin 2>/dev/null || true
     
     sudo chown -R www-data:www-data /usr/local/lsws/Example/html/mypanel
     sudo chmod -R 755 /usr/local/lsws/Example/html/mypanel
     
-    sudo chown -R www-data:www-data /usr/local/lsws/Example/html/webmail
-    sudo chmod -R 755 /usr/local/lsws/Example/html/webmail
+    sudo chown -R www-data:www-data /usr/local/lsws/Example/html/webmail 2>/dev/null || true
+    sudo chmod -R 755 /usr/local/lsws/Example/html/webmail 2>/dev/null || true
     
     sudo groupadd nobody 2>/dev/null || true
-    sudo groupadd nuopanel 2>/dev/null || true
+    sudo groupadd olspanel 2>/dev/null || true
     
-    sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data
-    sudo chmod -R 755 /usr/local/lsws/Example/html/webmail/data
+    sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data 2>/dev/null || true
+    sudo chmod -R 755 /usr/local/lsws/Example/html/webmail/data 2>/dev/null || true
     
     log_success "Permissoes configuradas"
 }
 
-################################################################################
-# Main
-################################################################################
-
-main() {
-    log_info "Iniciando extracao do painel..."
+copy_mysql_password() {
+    log_info "Copiando senha MySQL para painel..."
     
-    download_install_files
-    remove_files_in_html_folder
-    unzip_and_move
-    set_ownership_and_permissions
+    local source_file="$DB_ROOT_PASSWORD_FILE"
+    local target_dir="$PANEL_DIR/etc"
+    local target_file="$target_dir/mysqlPassword"
     
-    log_success "Extracao do painel concluida"
+    if [ ! -f "$source_file" ]; then
+        log_error "Senha MySQL nao encontrada"
+        return 1
+    fi
+    
+    mkdir -p "$target_dir"
+    cp "$source_file" "$target_file"
+    chmod 600 "$target_file"
+    
+    log_success "Senha copiada"
 }
 
-main "$@"
+main

@@ -33,7 +33,7 @@ log() {
             [ "$LOG_LEVEL" = "DEBUG" ] && [ "$VERBOSE" -eq 1 ] && echo -e "${BLUE}[DEBUG]${NC} ${message}"
             ;;
         INFO)
-            [ "$VERBOSE" -eq 1 ] && echo -e "${GREEN}[INFO]${NC} ${message}" || echo "${message}"
+            echo -e "${GREEN}${message}${NC}"
             ;;
         WARNING)
             echo -e "${YELLOW}[WARNING]${NC} ${message}" >&2
@@ -59,4 +59,28 @@ wait_for_apt_lock() {
         log_info "Aguardando apt lock..."
         sleep 5
     done
+}
+
+# Gerar senha MySQL
+generate_mariadb_password() {
+    tr -dc A-Za-z0-9 </dev/urandom | head -c 16
+}
+
+# Ler senha de arquivo
+get_password_from_file() {
+    local password_file="$1"
+    
+    if [ ! -f "$password_file" ]; then
+        log_error "Arquivo $password_file nao existe"
+        return 1
+    fi
+    
+    local password=$(cat "$password_file")
+    
+    if [ -z "$password" ]; then
+        log_error "Arquivo $password_file esta vazio"
+        return 1
+    fi
+    
+    echo "$password"
 }

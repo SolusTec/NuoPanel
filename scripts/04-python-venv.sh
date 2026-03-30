@@ -1,107 +1,55 @@
 #!/bin/bash
 ################################################################################
-# NuoPanel - 04 Python Virtual Environment
-# Descricao: Instalacao e configuracao do Python Virtual Environment
+# Script 04 - Python e Virtual Environment
 ################################################################################
 
-# Carregar funcoes comuns
-source /root/nuopanel-install/common-functions.sh 2>/dev/null || \
-    source "$(dirname "$0")/common-functions.sh" 2>/dev/null || \
-    { echo "ERRO: common-functions.sh nao encontrado"; exit 1; }
+source /root/nuopanel-install/common-functions.sh
+source /root/nuopanel-install/config.env
 
-# Carregar configuracoes
-source /root/nuopanel-install/config.env 2>/dev/null || \
-    source "$(dirname "$0")/config.env" 2>/dev/null || \
-    { echo "ERRO: config.env nao encontrado"; exit 1; }
-
-################################################################################
-# Funcoes (extraidas do panel.sh original)
-################################################################################
-
-install_pip() {
-    log_info "Atualizando sistema..."
-    wait_for_apt_lock
-    sudo apt update && sudo apt upgrade -y
+main() {
+    log_info "Configurando Python..."
     
-    log_info "Instalando Python..."
-    wait_for_apt_lock
-    sudo apt install python3 python3-venv python3-pip pkg-config libmysqlclient-dev -y
+    install_python_deps
+    create_venv
+    install_requirements
     
-    log_info "Criando virtual environment..."
-    python3 -m venv "$VENV_PATH"
-    source "$VENV_PATH/bin/activate"
-    
-    log_info "Atualizando pip e setuptools..."
-    pip install --upgrade pip setuptools
-    
-    log_info "Instalando mysqlclient..."
-    pip install --no-binary :all: mysqlclient
-    
-    deactivate
-    
-    log_success "Python e pip configurados"
+    log_success "Python configurado"
 }
 
-install_python_dependencies_in_venv() {
-    log_info "Baixando requirements.txt..."
-    wget -O "$WORK_DIR/ubuntu.txt" "$REQUIREMENTS_UBUNTU_URL"
-    
-    if [ ! -f "$WORK_DIR/ubuntu.txt" ]; then
-        log_error "Falha ao baixar requirements.txt"
-        return 1
-    fi
-    
-    log_info "Instalando dependencias Python no virtual environment..."
-    
-    if [ ! -d "$VENV_PATH" ]; then
-        log_info "Criando virtual environment..."
-        python3 -m venv "$VENV_PATH"
-    fi
-    
-    source "$VENV_PATH/bin/activate"
-    
-    log_info "Atualizando pip e instalando pacotes..."
-    "$VENV_PATH/bin/python3" -m pip install --upgrade pip
-    "$VENV_PATH/bin/python3" -m pip install -r "$WORK_DIR/ubuntu.txt"
-    
-    deactivate
-    
-    if [ $? -eq 0 ]; then
-        log_success "Dependencias Python instaladas"
-    else
-        log_error "Falha ao instalar dependencias Python"
-        return 1
-    fi
-}
-
-install_python_dependencies() {
+install_python_deps() {
     log_info "Instalando dependencias Python..."
+    wait_for_apt_lock
+    sudo apt install -y python3 python3-venv python3-pip pkg-config libmysqlclient-dev build-essential python3-dev libssl-dev
     
-    if command -v pip3 &> /dev/null; then
-        install_python_dependencies_in_venv
-        
-        if [ $? -eq 0 ]; then
-            log_success "Dependencias Python instaladas com sucesso"
-        else
-            log_warning "Falha ao instalar dependencias Python"
-        fi
-    else
+    if [ $? -ne 0 ]; then
         log_error "pip3 nao esta instalado"
         return 1
     fi
+    
+    log_success "Dependencias instaladas"
 }
 
-################################################################################
-# Main
-################################################################################
-
-main() {
-    log_info "Iniciando configuracao Python Virtual Environment..."
-    
-    install_pip
-    install_python_dependencies
-    
-    log_success "Python Virtual Environment configurado"
+create_venv() {
+    log_info "Criando virtual environment..."
+    python3 -m venv "$VENV_PATH"
+    source "$VENV_PATH/bin/activate"
+    pip install --upgrade pip setuptools
+    pip install --no-binary :all: mysqlclient
+    deactivate
+    log_success "Virtual environment criado"
 }
 
-main "$@"
+install_requirements() {
+    log_info "Baixando requirements..."
+    wget -q -O "$WORK_DIR/ubuntu.txt" "$REQUIREMENTS_UBUNTU_URL"
+    
+    log_info "Instalando pacotes Python..."
+    source "$VENV_PATH/bin/activate"
+    "$VENV_PATH/bin/python3" -m pip install --upgrade pip
+    "$VENV_PATH/bin/python3" -m pip install -r "$WORK_DIR/ubuntu.txt"
+    deactivate
+    
+    log_success "Pacotes Python instalados"
+}
+
+main

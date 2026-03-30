@@ -8,7 +8,6 @@
 # Cores
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
 NC='\033[0m'
 
 # Verificar root
@@ -41,11 +40,11 @@ wget -q -O common-functions.sh https://raw.githubusercontent.com/SolusTec/NuoPan
 source config.env
 source common-functions.sh
 
-# Scripts na ORDEM CORRETA
+# Scripts na ORDEM CORRETA (MariaDB ANTES de OpenLiteSpeed)
 declare -a SCRIPTS=(
     "01-system-setup.sh"
-    "03-mariadb.sh"        # ANTES - gera senha
-    "02-openlitespeed.sh"  # DEPOIS - usa senha
+    "02-mariadb.sh"
+    "03-openlitespeed.sh"
     "04-python-venv.sh"
     "05-extract-panel.sh"
     "06-mail-ftp-dns.sh"
