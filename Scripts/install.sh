@@ -1,155 +1,56 @@
-#!/bin/bash
+#!/bin/sh
 
-HOME_PATH_FILE="/etc/olspanel/base_dir"
-if [ -f "$HOME_PATH_FILE" ]; then
-    # Read value from file
-    PROJECT_DIR="$(cat "$HOME_PATH_FILE")"
+echo -e "\nNuoPanel installation is now starting soon please wait...\n"
+# Detect OS version
+OUTPUT=$(cat /etc/*release)
+
+if echo "$OUTPUT" | grep -q "Ubuntu 18.04"; then
+    SERVER_OS="Ubuntu"
+    sudo apt update -qq && sudo apt install -y -qq wget curl
+elif echo "$OUTPUT" | grep -q "Ubuntu 20.04"; then
+    SERVER_OS="Ubuntu"
+    sudo apt update -qq && sudo apt install -y -qq wget curl
+elif echo "$OUTPUT" | grep -q "Ubuntu 22.04"; then
+    SERVER_OS="Ubuntu"
+    sudo apt update -qq && sudo apt install -y -qq wget curl
+elif echo "$OUTPUT" | grep -q "Ubuntu 24.04"; then
+    SERVER_OS="Ubuntu"
+    sudo apt update -qq && sudo apt install -y -qq wget curl
+elif echo "$OUTPUT" | grep -q "Debian"; then
+    SERVER_OS="Debian"
+    sudo apt update -qq && sudo apt install -y -qq wget curl
+elif echo "$OUTPUT" | grep -q "AlmaLinux 8"; then
+    SERVER_OS="Centos"
+    sudo dnf update -y && sudo dnf install -y wget curl
+elif echo "$OUTPUT" | grep -q "AlmaLinux 9"; then
+    SERVER_OS="Centos"
+    sudo dnf update -y && sudo dnf install -y wget curl
+elif echo "$OUTPUT" | grep -q "CentOS Linux 8" || echo "$OUTPUT" | grep -q "CentOS Stream 8"; then
+    SERVER_OS="Centos"
+    sudo dnf update -y && sudo dnf install -y wget curl
+elif echo "$OUTPUT" | grep -q "CentOS Stream 9"; then
+    SERVER_OS="Centos"
+    sudo dnf update -y && sudo dnf install -y wget curl
+elif echo "$OUTPUT" | grep -q "Rocky Linux 8"; then
+    SERVER_OS="Centos"
+    sudo dnf update -y && sudo dnf install -y wget curl
+elif echo "$OUTPUT" | grep -q "Rocky Linux 9"; then
+    SERVER_OS="Centos"
+    sudo dnf update -y && sudo dnf install -y wget curl
 else
-    # Extract from systemd service
-    PROJECT_DIR="/usr/local/lsws/Example/html/mypanel"
+    echo -e "\nNuoPanel is supported only on Ubuntu 18.04, 20.04, 22.04, 24.04, Debian 11, 12, AlmaLinux 8 , 9 , CentOS Stream 8, 9 and Rocky Linux 8,9 Other OS support coming soon.\n"
+    exit 1
 fi
 
-
-# Detect OS info
-if [ -f /etc/os-release ]; then
-    . /etc/os-release
-    OS_NAME=$ID
-    OS_VERSION=${VERSION_ID%%.*}
-elif [ -f /etc/centos-release ]; then
-    OS_NAME="centos"
-    OS_VERSION=$(awk '{print $4}' /etc/centos-release | cut -d. -f1)
-fi
+echo -e "\nYour OS is $SERVER_OS\n"
+# Update system and install required packages
 
 
-run_py() {
-    local PYTHON_CMD
+wget -O panel.sh "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Server-OS/$SERVER_OS/panel.sh"
+wget -O requirements.txt "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Config/requirements.txt"
 
-    if [[ ("$OS_NAME" == "centos" || "$OS_NAME" == "almalinux") && ("$OS_VERSION" == "7" || "$OS_VERSION" == "8") ]]; then
-        PYTHON_CMD="/root/venv/bin/python3.12"
-    elif [[ "$OS_NAME" == "ubuntu" && "$OS_VERSION" -ge 24 ]]; then
-        PYTHON_CMD="/root/venv/bin/python"
-    elif [[ "$OS_NAME" == "ubuntu" && "$OS_VERSION" -lt 24 ]]; then
-        PYTHON_CMD=$(which python3)
-    else
-        PYTHON_CMD="/root/venv/bin/python3"
-    fi
+# Ensure the script is executable
+chmod +x panel.sh
+sed -i 's/\r$//' panel.sh
 
-    echo "Trying $PYTHON_CMD $PROJECT_DIR/manage.py install_olsapp"
-    $PYTHON_CMD $PROJECT_DIR/manage.py install_olsapp
-    local STATUS=$?
-
-    if [[ $STATUS -ne 0 ]]; then
-        echo "First attempt failed, trying fallback Python interpreters..."
-
-        # Fallback Python interpreters to try if the first fails
-        local FALLBACKS=(
-            "/usr/bin/python3"
-            "$(which python3)"
-            "/usr/local/bin/python3"
-            "/root/venv/bin/python"
-        )
-
-        for alt_python in "${FALLBACKS[@]}"; do
-            if [[ -x "$alt_python" ]]; then
-                echo "Trying fallback: $alt_python $PROJECT_DIR/manage.py install_olsapp"
-                $alt_python $PROJECT_DIR/manage.py install_olsapp
-                STATUS=$?
-                if [[ $STATUS -eq 0 ]]; then
-                    echo "Succeeded with fallback: $alt_python"
-                    return 0
-                fi
-            else
-                echo "Fallback interpreter not executable or not found: $alt_python"
-            fi
-        done
-
-        echo "All fallback attempts failed."
-        return 1
-    fi
-}
-
-
-create_olsapp_conf() {
-    CONF_DIR="/usr/local/olspanel/mypanel/plugin"
-    CONF_FILE="$CONF_DIR/olsapp.conf"
-
-    echo "Creating olsapp plugin config..."
-
-    mkdir -p "$CONF_DIR"
-
-    cat > "$CONF_FILE" <<'EOF'
-# The Displayname.
-name=Olsapp
-
-# The application's service.
-service=both
-
-url=/3rdparty/olsapp/index.php 
-
-header[HTTP_AUTOLOGINUSER]=%dbusername%
-header[HTTP_AUTOLOGINPASS]=%dbuserpass% 
-
-# System user and group to run process as
-user=root
-group=root 
-
-# Features required
-features=olsapp
-
-# Media  required
-icon=/media/icon/olsapp.png 
-
-#short
-sorder=99
-
-#hide from display
-display_hide = true
-EOF
-
-    echo "Config created at: $CONF_FILE"
-}
-
-install_olsapp() {
-    ZIP_URL="https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Assets/olsapp.zip?ts=$(date +%s)"
-
-    # If project is default olspanel path
-    if [ "$PROJECT_DIR" = "/usr/local/olspanel/mypanel" ]; then
-        DEST_DIR="/usr/local/olspanel/mypanel/3rdparty/olsapp"
-        ZIP_FILE="/usr/local/olspanel/mypanel/3rdparty/olsapp.zip"
-        
-    else
-        DEST_DIR="${PROJECT_DIR%/*}/olsapp"
-        ZIP_FILE="${PROJECT_DIR%/*}/olsapp.zip"
-    fi
-
-    echo "Downloading olsapp..."
-    wget -O "$ZIP_FILE" "$ZIP_URL" --no-cache --no-cookies
-
-    echo "Extracting olsapp..."
-    mkdir -p "$DEST_DIR"
-    unzip -o "$ZIP_FILE" -d "$DEST_DIR"
-    rm -f "$ZIP_FILE"
-if [ "$PROJECT_DIR" = "/usr/local/olspanel/mypanel" ]; then
-create_olsapp_conf
-wget -O "$DEST_DIR/conf.php" "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/conf_for_bin.ph" --no-cache --no-cookies
-chown -R olspanel:olspanel $DEST_DIR
-else
-chown -R olspanel:olspanel ${PROJECT_DIR%/*}/olsapp
-fi
-    echo "olsapp installed at: $DEST_DIR"
-}
-
-
-
-# Run installer
-#run_repo
-install_olsapp
-if [ "$PROJECT_DIR" != "/usr/local/olspanel/mypanel" ]; then
-    run_py
-else
-    echo "Using default olspanel path, skipping run_py"
-fi
-
-
-chown -R olspanel:olspanel /usr/local/lsws/Example/html/olsapp
-
+sh panel.sh

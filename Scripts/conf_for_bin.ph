@@ -8,8 +8,8 @@ if(!defined('olsapp')){
 
 }
 
-$globals['path'] = '/usr/local/olspanel/mypanel/3rdparty/olsapp';
-$globals['scripts'] = '/usr/local/olspanel/mypanel/3rdparty/olsapp/apps';
+$globals['path'] = '/usr/local/nuopanel/nuopanel/3rdparty/olsapp';
+$globals['scripts'] = '/usr/local/nuopanel/nuopanel/3rdparty/olsapp/apps';
 $globals['sn'] = 'olsapp';
 $globals['cookie_name'] = 'olsappCookies17';
 $globals['gzip'] = 1;

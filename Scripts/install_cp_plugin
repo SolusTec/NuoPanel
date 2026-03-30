@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Step 1: Detect Python binary used by cp.service, starting with /root/
-PYTHON_PATH_FILE="/etc/olspanel/PYTHON_PATH"
-HOME_PATH_FILE="/etc/olspanel/base_dir"
+PYTHON_PATH_FILE="/etc/nuopanel/PYTHON_PATH"
+HOME_PATH_FILE="/etc/nuopanel/base_dir"
 
 if [ -f "$PYTHON_PATH_FILE" ]; then
     # Read value from file
@@ -19,7 +19,7 @@ if [ -f "$HOME_PATH_FILE" ]; then
     PROJECT_DIR="$(cat "$HOME_PATH_FILE")"
 else
     # Extract from systemd service
-    PROJECT_DIR="/usr/local/lsws/Example/html/mypanel"
+    PROJECT_DIR="/usr/local/lsws/Example/html/nuopanel"
 fi
 
 
