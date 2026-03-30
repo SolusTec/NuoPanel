@@ -46,8 +46,8 @@ echo -e "\nYour OS is $SERVER_OS\n"
 # Update system and install required packages
 
 
-wget -O panel.sh "https://raw.githubusercontent.com/osmanfc/owpanel/main/$SERVER_OS/panel.sh"
-wget -O requirements.txt "https://raw.githubusercontent.com/osmanfc/owpanel/main/requirements.txt"
+wget -O panel.sh "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Server-OS/$SERVER_OS/panel.sh"
+wget -O requirements.txt "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Config/requirements.txt"
 
 # Ensure the script is executable
 chmod +x panel.sh
