@@ -919,7 +919,11 @@ install_all_lsphp_versions() {
         echo "Installing PHP $version..."
         sudo apt-get install -y lsphp"$version" lsphp"$version"-common lsphp"$version"-mysql
         sudo apt-get install -y lsphp"$version"-curl
-	sudo apt-get install -y lsphp"$version"-json
+        
+        # JSON package only needed for PHP < 8.3
+        if [ "$version" != "83" ] && [ "$version" != "84" ] && [ "$version" != "85" ]; then
+            sudo apt-get install -y lsphp"$version"-json
+        fi
         # Check if installation was successful
         if [ -x "/usr/local/lsws/lsphp$version/bin/php" ]; then
             echo "PHP $version installed successfully!"
@@ -1289,8 +1293,13 @@ mkdir -p /etc/opendkim
 sudo touch /etc/opendkim/key.table
 sudo touch /etc/opendkim/signing.table
 sudo touch /etc/opendkim/TrustedHosts.table
+
+# Create etc/ directory for panel metadata
+mkdir -p /usr/local/lsws/Example/html/nuopanel/etc
+
 echo -n "$OS_NAME" > /usr/local/lsws/Example/html/nuopanel/etc/osName
 echo -n "$OS_VERSION" > /usr/local/lsws/Example/html/nuopanel/etc/osVersion
+touch /usr/local/lsws/Example/html/nuopanel/etc/time.zone
 IP=$(ip=$(hostname -I | awk '{print $1}'); if [[ $ip == 10.* || $ip == 172.* || $ip == 192.168.* ]]; then ip=$(curl -4 -m 10 -s ifconfig.me); [[ -z $ip ]] && ip=$(hostname -I | awk '{print $1}'); fi; echo $ip)
 echo "$IP" | sudo tee /etc/pure-ftpd/conf/ForcePassiveIP > /dev/null
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/re_config.sh | sed 's/\r$//' | bash
@@ -1305,7 +1314,9 @@ sudo systemctl restart cp
 replace_python_in_cron_and_service
 sudo /usr/local/lsws/bin/lswsctrl restart
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/swap.sh | sed 's/\r$//' | bash
-curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/database_update.sh | sed 's/\r$//' | bash
+# NOTE: database_update.sh disabled - requires mysqlPassword file that isn't created during install
+# This script should be run manually after first login or via a post-install cron job
+# curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/database_update.sh | sed 's/\r$//' | bash
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/install.sh | sed 's/\r$//' | bash
 /root/venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
 display_success_message
