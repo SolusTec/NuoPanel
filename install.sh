@@ -40,6 +40,40 @@ wget -q -O common-functions.sh https://raw.githubusercontent.com/SolusTec/NuoPan
 source config.env
 source common-functions.sh
 
+# Verificar sistema suportado
+log_info "Sistema detectado: $OS_NAME $OS_VERSION"
+
+case "$OS_NAME" in
+    ubuntu)
+        if [ "$UBUNTU_VERSION" != "20" ] && [ "$UBUNTU_VERSION" != "22" ] && [ "$UBUNTU_VERSION" != "24" ]; then
+            log_error "Ubuntu $UBUNTU_VERSION nao suportado. Use 20.04, 22.04 ou 24.04"
+            exit 1
+        fi
+        log_success "Ubuntu $UBUNTU_VERSION.04 - Sistema suportado"
+        ;;
+    debian)
+        if [ "$OS_VERSION" -lt 10 ]; then
+            log_error "Debian $OS_VERSION nao suportado. Use Debian 10+"
+            exit 1
+        fi
+        log_success "Debian $OS_VERSION - Sistema suportado"
+        ;;
+    centos)
+        if [ "$OS_VERSION" -lt 7 ]; then
+            log_error "CentOS $OS_VERSION nao suportado. Use CentOS 7+"
+            exit 1
+        fi
+        log_success "CentOS $OS_VERSION - Sistema suportado"
+        ;;
+    *)
+        log_error "Sistema operacional '$OS_NAME' nao suportado"
+        log_error "Sistemas suportados: Ubuntu 20.04/22.04/24.04, Debian 10+, CentOS 7+"
+        exit 1
+        ;;
+esac
+
+log_info "OpenLiteSpeed service: $SYSTEMD_SERVICE"
+
 # Scripts na ORDEM CORRETA (MariaDB ANTES de OpenLiteSpeed)
 declare -a SCRIPTS=(
     "01-system-setup.sh"
