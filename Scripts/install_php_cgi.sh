@@ -72,8 +72,10 @@ sudo ${PACKAGE_MANAGER} install -y php${version}-xml || true
 sudo ${PACKAGE_MANAGER} install -y php${version}-mysql || true
 sudo ${PACKAGE_MANAGER} install -y php${version}-imap || true
 sudo ${PACKAGE_MANAGER} install -y php${version}-mysqlnd || true
-sudo ${PACKAGE_MANAGER} install -y php${version}-php-imap || true
-sudo ${PACKAGE_MANAGER} install -y php${version}-json || true
+# JSON only needed for PHP < 8.0
+if [ "$version" == "7.4" ]; then
+    sudo ${PACKAGE_MANAGER} install -y php${version}-json || true
+fi
 
             [ -f "$ini_file" ] && {
                 sudo sed -i 's/^upload_max_filesize\s*=.*/upload_max_filesize = 80M/' "$ini_file" || true
