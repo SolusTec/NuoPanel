@@ -101,18 +101,26 @@ log_info "Iniciando instalacao..."
 echo ""
 
 for script in "${SCRIPTS[@]}"; do
-    echo "================================================================================"
+    echo "================================================================================" | tee -a "$LOG_FILE"
     log_info ">>> Executando: ${script}"
-    echo "================================================================================"
+    echo "================================================================================" | tee -a "$LOG_FILE"
     
-    bash "${script}"
+    # Executar com captura COMPLETA de output
+    bash "${script}" 2>&1 | tee -a "$LOG_FILE"
     
-    if [ $? -ne 0 ]; then
-        log_error "FALHA em ${script}"
+    EXITCODE=${PIPESTATUS[0]}
+    
+    if [ $EXITCODE -ne 0 ]; then
+        log_error "FALHA em ${script} (exit code: $EXITCODE)"
+        echo ""
+        echo "================================================================================"
+        echo "LOG COMPLETO SALVO EM: $LOG_FILE"
+        echo "Para enviar o log: cat $LOG_FILE"
+        echo "================================================================================"
         exit 1
     fi
     
-    echo ""
+    echo "" | tee -a "$LOG_FILE"
 done
 
 echo "================================================================================"

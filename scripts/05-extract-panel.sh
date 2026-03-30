@@ -74,7 +74,7 @@ set_permissions() {
     sudo chmod -R 755 /usr/local/lsws/Example/html/webmail 2>/dev/null || true
     
     sudo groupadd nobody 2>/dev/null || true
-    sudo groupadd olspanel 2>/dev/null || true
+    sudo groupadd nuopanel 2>/dev/null || true
     
     sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data 2>/dev/null || true
     sudo chmod -R 755 /usr/local/lsws/Example/html/webmail/data 2>/dev/null || true

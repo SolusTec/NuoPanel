@@ -51,9 +51,9 @@ reset_admin_password() {
 }
 
 install_olsapp() {
-    log_info "Instalando olsapp..."
-    "$VENV_PATH/bin/python" "$PANEL_DIR/manage.py" install_olsapp
-    log_success "olsapp instalado"
+    log_info "Instalando aplicativos do painel..."
+    "$VENV_PATH/bin/python" "$PANEL_DIR/manage.py" install_nuopanel
+    log_success "Aplicativos instalados"
 }
 
 add_cronjobs() {
@@ -69,8 +69,8 @@ add_cronjobs() {
 0 0 1 * * $PYTHON_CMD $MANAGE backup --month
 0 0 * * * $PYTHON_CMD $MANAGE check_version
 0 */3 * * * $PYTHON_CMD $MANAGE limit_check
-*/3 * * * * if ! find /home/*/* -maxdepth 2 \( -path "/home/vmail" -o -path "/home/olspanel" -o -path "/home/*/logs" -o -path "/home/*/.trash" -o -path "/home/*/backup" \) -prune -o -type f -name '.htaccess' -newer /usr/local/lsws/cgid -exec false {} +; then /usr/local/lsws/bin/lswsctrl restart; fi
-* * * * * /usr/local/bin/olspanel --fail2ban >/dev/null 2>&1
+*/3 * * * * if ! find /home/*/* -maxdepth 2 \( -path "/home/vmail" -o -path "/home/nuopanel" -o -path "/home/*/logs" -o -path "/home/*/.trash" -o -path "/home/*/backup" \) -prune -o -type f -name '.htaccess' -newer /usr/local/lsws/cgid -exec false {} +; then /usr/local/lsws/bin/lswsctrl restart; fi
+* * * * * /usr/local/bin/nuopanel --fail2ban >/dev/null 2>&1
 EOF
 ) | crontab -
     
@@ -84,11 +84,12 @@ copy_postfix_resolv() {
 
 copy_banner_ssh() {
     log_info "Copiando banner SSH..."
-    if [ -f "$ITEM_DIR/move/conf/olspanel.sh" ]; then
-        cp "$ITEM_DIR/move/conf/olspanel.sh" /etc/profile.d/
+    if [ -f "$ITEM_DIR/move/conf/banner-ssh.sh" ]; then
+        cp "$ITEM_DIR/move/conf/banner-ssh.sh" /etc/profile.d/banner-ssh.sh
     else
         wget -q -O /etc/profile.d/banner-ssh.sh "$BANNER_SCRIPT_URL" || true
     fi
+    chmod +x /etc/profile.d/banner-ssh.sh
 }
 
 run_external_scripts() {
