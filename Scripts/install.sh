@@ -35,8 +35,8 @@ run_py() {
         PYTHON_CMD="/root/venv/bin/python3.12"
     fi
 
-    echo "Trying $PYTHON_CMD $PROJECT_DIR/manage.py install_nuopanel_app"
-    $PYTHON_CMD $PROJECT_DIR/manage.py install_nuopanel_app
+    echo "Trying $PYTHON_CMD $PROJECT_DIR/manage.py install_olsapp"
+    $PYTHON_CMD $PROJECT_DIR/manage.py install_olsapp
     local STATUS=$?
 
     if [[ $STATUS -ne 0 ]]; then
@@ -51,8 +51,8 @@ run_py() {
 
         for alt_python in "${FALLBACKS[@]}"; do
             if [[ -x "$alt_python" ]]; then
-                echo "Trying fallback: $alt_python $PROJECT_DIR/manage.py install_nuopanel_app"
-                $alt_python $PROJECT_DIR/manage.py install_nuopanel_app
+                echo "Trying fallback: $alt_python $PROJECT_DIR/manage.py install_olsapp"
+                $alt_python $PROJECT_DIR/manage.py install_olsapp
                 STATUS=$?
                 if [[ $STATUS -eq 0 ]]; then
                     echo "Succeeded with fallback: $alt_python"
@@ -109,7 +109,7 @@ CONFEOF
     echo "Config created at: $CONF_FILE"
 }
 
-install_nuopanel_app() {
+install_olsapp() {
     ZIP_URL="https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Assets/olsapp.zip?ts=$(date +%s)"
 
     # If project is default nuopanel path
@@ -143,7 +143,7 @@ fi
 
 
 # Run installer
-install_nuopanel_app
+install_olsapp
 if [ "$PROJECT_DIR" != "/usr/local/nuopanel/nuopanel" ]; then
     run_py
 else

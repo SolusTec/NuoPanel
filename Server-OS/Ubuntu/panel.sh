@@ -1198,7 +1198,6 @@ fi
 # Generate a MariaDB-compatible random password
 PASSWORD=$(generate_mariadb_password)  # Change 16 to your desired password length
 echo "Generated MariaDB-Compatible Password: $PASSWORD"
-DB_PASSWORD=$(get_password_from_file "/root/db_credentials_panel.txt")
 # Save the password to the file
 echo -n "$PASSWORD" > "$PASSWORD_FILE"
 if [ $? -eq 0 ]; then
