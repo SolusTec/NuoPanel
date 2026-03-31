@@ -713,6 +713,7 @@ setup_cp_service_with_port() {
     local httpd_file="/root/item/move/conf/httpd_config.conf"
     local target_dir="/etc/systemd/system/"
     local target_file="${target_dir}cp.service"
+    local port_file="/root/item/port.txt"
 
     # Ensure the service file exists
     if [ ! -f "$service_file" ]; then
@@ -720,16 +721,18 @@ setup_cp_service_with_port() {
         return 1
     fi
 
-    # Check if port 8443 is already in use
-    if netstat -tuln | grep -q ":8443 "; then
+    # Check if public port 8443 is available
+    if netstat -tuln 2>/dev/null | grep -q ":8443 " || ss -tuln 2>/dev/null | grep -q ":8443 "; then
         echo "⚠️  Warning: Port 8443 is already in use!"
         echo "Please free up port 8443 before continuing."
         return 1
     fi
 
-    echo "Using fixed port 8443 for NuoPanel..."
+    echo "Using port configuration:"
+    echo "  - Internal (Django): 8011"
+    echo "  - Public (HTTPS): 8443"
 
-    # Copy the service file to systemd directory (no port substitution needed)
+    # Copy service file (already configured for port 8011)
     echo "Copying service file to '$target_dir'..."
     cp "$service_file" "$target_file"
     if [ $? -ne 0 ]; then
@@ -737,7 +740,7 @@ setup_cp_service_with_port() {
         return 1
     fi
 
-    # Copy httpd config (no port substitution needed)
+    # Copy httpd config (already configured: proxy 8011, listener 8443)
     echo "Copying httpd config..."
     cp "$httpd_file" /usr/local/lsws/conf/httpd_config.conf
     if [ $? -ne 0 ]; then
@@ -745,14 +748,15 @@ setup_cp_service_with_port() {
         return 1
     fi
 
+    # Save public port to file for backward compatibility
+    echo "8443" > "$port_file"
+    
     # Reload systemd daemon
     echo "Reloading systemd daemon..."
     sudo systemctl daemon-reload
 
-    # Save port to file for backward compatibility
-    echo "8443" > /root/item/port.txt
-    echo "✅ Service configured to use port 8443"
-    echo "   - Django: http://127.0.0.1:8443"
+    echo "✅ Service configured successfully!"
+    echo "   - Django internal: http://127.0.0.1:8011"
     echo "   - Public access: https://your-server:8443"
 }
 copy_mysql_password() {
