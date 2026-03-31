@@ -716,7 +716,6 @@ setup_cp_service_with_port() {
     local httpd_file="/root/item/move/conf/httpd_config.conf"
     local target_dir="/etc/systemd/system/"
     local target_file="${target_dir}cp.service"
-    local port_file="/root/item/port.txt"
     local public_port=8443
 
     # Ensure the service file exists
@@ -735,15 +734,6 @@ setup_cp_service_with_port() {
     echo "Configuring NuoPanel with fixed port architecture:"
     echo "  - Internal (Django): 127.0.0.1:8011"
     echo "  - Public (HTTPS): *:${public_port}"
-
-    # Save public port to file
-    # Create directory if it doesn't exist
-    mkdir -p /root/item
-    echo "${public_port}" > "$port_file"
-    if [ $? -ne 0 ]; then
-        echo "Failed to save port to '$port_file'. Exiting."
-        return 1
-    fi
 
     # Copy service file (already configured for port 8011)
     echo "Copying service file to '$target_dir'..."
