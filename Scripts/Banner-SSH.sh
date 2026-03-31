@@ -5,7 +5,7 @@
 IP=$(ip=$(hostname -I | awk '{print $1}'); if [[ $ip == 10.* || $ip == 172.* || $ip == 192.168.* ]]; then ip=$(curl -4 -m 10 -s ifconfig.me); [[ -z $ip ]] && ip=$(hostname -I | awk '{print $1}'); fi; echo $ip)
  
 
-PORT_PATH_FILE="/etc/olspanel/port"
+PORT_PATH_FILE="/etc/nuopanel/port"
 if [ -f "$PORT_PATH_FILE" ]; then
     # Read value from file
     PORT="$(cat "$PORT_PATH_FILE")"

@@ -3,8 +3,8 @@
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-PYTHON_PATH_FILE="/etc/olspanel/PYTHON_PATH"
-HOME_PATH_FILE="/etc/olspanel/base_dir"
+PYTHON_PATH_FILE="/etc/nuopanel/PYTHON_PATH"
+HOME_PATH_FILE="/etc/nuopanel/base_dir"
 
 if [ -f "$PYTHON_PATH_FILE" ]; then
     # Read value from file
@@ -21,7 +21,7 @@ if [ -f "$HOME_PATH_FILE" ]; then
     PROJECT_DIR="$(cat "$HOME_PATH_FILE")"
 else
     # Extract from systemd service
-    PROJECT_DIR="/usr/local/lsws/Example/html/mypanel"
+    PROJECT_DIR="/usr/local/lsws/Example/html/nuopanel"
 fi
 
 
@@ -65,49 +65,49 @@ case "$1" in
         ;;
     adduser)
         
-        com="olspanel"
+        com="nuopanel"
        
         set -- adduser "$@"
         shift
         ;;
 	actionuser)
         
-        com="olspanel"
+        com="nuopanel"
         
         set -- actionuser "$@"
         shift
         ;;
     edituser)
        
-        com="olspanel"
+        com="nuopanel"
         
         set -- edituser "$@"
         shift
         ;;
     pkglist)
         
-        com="olspanel"
+        com="nuopanel"
         
         set -- pkglist "$@"
         shift
         ;;
     newpkg)
         
-        com="olspanel"
+        com="nuopanel"
         
         set -- newpkg "$@"
         shift
         ;;
     editpkg)
         
-        com="olspanel"
+        com="nuopanel"
         
         set -- editpkg "$@"
         shift
         ;;
     ssl)
         
-        com="olspanel"
+        com="nuopanel"
         
         set -- ssl "$@"
         shift
@@ -115,14 +115,14 @@ case "$1" in
 
     domainadd)
         
-        com="olspanel"
+        com="nuopanel"
         
         set -- domainadd "$@"
         shift
         ;;
     backupnow)
         
-        com="olspanel"
+        com="nuopanel"
         
         set -- backupnow "$@"
         shift
@@ -130,7 +130,7 @@ case "$1" in
         
     makedb)
         
-        com="olspanel"
+        com="nuopanel"
         
         set -- makedb "$@"
         shift
@@ -138,14 +138,14 @@ case "$1" in
 
     cronjob_add)
         
-        com="olspanel"
+        com="nuopanel"
         
         set -- cronjob_add "$@"
         shift
         ;;	
     fixperm)
         
-        com="olspanel"
+        com="nuopanel"
         
         set -- fixperm "$@"
         shift
@@ -153,7 +153,7 @@ case "$1" in
     
      dbedit)
         
-        com="olspanel"
+        com="nuopanel"
         
         set -- dbedit "$@"
         shift
@@ -183,7 +183,7 @@ case "$1" in
         echo "  --olsapp-install [args...] Install OLS app"
         echo "  --plugin-install FILE   Install plugin"
         echo "  --reset-password        Reset admin password"
-        echo "  adduser [args...]       Create user (maps to 'olspanel adduser')"
+        echo "  adduser [args...]       Create user (maps to 'nuopanel adduser')"
         echo "  <command> [args...]     Run any manage.py command"
         exit 0
         ;;

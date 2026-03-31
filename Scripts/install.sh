@@ -1,12 +1,12 @@
 #!/bin/bash
 
-HOME_PATH_FILE="/etc/olspanel/base_dir"
+HOME_PATH_FILE="/etc/nuopanel/base_dir"
 if [ -f "$HOME_PATH_FILE" ]; then
     # Read value from file
     PROJECT_DIR="$(cat "$HOME_PATH_FILE")"
 else
     # Extract from systemd service
-    PROJECT_DIR="/usr/local/lsws/Example/html/mypanel"
+    PROJECT_DIR="/usr/local/lsws/Example/html/nuopanel"
 fi
 
 
@@ -70,7 +70,7 @@ run_py() {
 
 
 create_olsapp_conf() {
-    CONF_DIR="/usr/local/olspanel/mypanel/plugin"
+    CONF_DIR="/usr/local/nuopanel/nuopanel/plugin"
     CONF_FILE="$CONF_DIR/olsapp.conf"
 
     echo "Creating olsapp plugin config..."
@@ -112,10 +112,10 @@ EOF
 install_olsapp() {
     ZIP_URL="https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Assets/olsapp.zip?ts=$(date +%s)"
 
-    # If project is default olspanel path
-    if [ "$PROJECT_DIR" = "/usr/local/olspanel/mypanel" ]; then
-        DEST_DIR="/usr/local/olspanel/mypanel/3rdparty/olsapp"
-        ZIP_FILE="/usr/local/olspanel/mypanel/3rdparty/olsapp.zip"
+    # If project is default nuopanel path
+    if [ "$PROJECT_DIR" = "/usr/local/nuopanel/nuopanel" ]; then
+        DEST_DIR="/usr/local/nuopanel/nuopanel/3rdparty/olsapp"
+        ZIP_FILE="/usr/local/nuopanel/nuopanel/3rdparty/olsapp.zip"
         
     else
         DEST_DIR="${PROJECT_DIR%/*}/olsapp"
@@ -129,12 +129,12 @@ install_olsapp() {
     mkdir -p "$DEST_DIR"
     unzip -o "$ZIP_FILE" -d "$DEST_DIR"
     rm -f "$ZIP_FILE"
-if [ "$PROJECT_DIR" = "/usr/local/olspanel/mypanel" ]; then
+if [ "$PROJECT_DIR" = "/usr/local/nuopanel/nuopanel" ]; then
 create_olsapp_conf
 wget -O "$DEST_DIR/conf.php" "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/conf_for_bin.ph" --no-cache --no-cookies
-chown -R olspanel:olspanel $DEST_DIR
+chown -R nuopanel:nuopanel $DEST_DIR
 else
-chown -R olspanel:olspanel ${PROJECT_DIR%/*}/olsapp
+chown -R nuopanel:nuopanel ${PROJECT_DIR%/*}/olsapp
 fi
     echo "olsapp installed at: $DEST_DIR"
 }
@@ -144,12 +144,12 @@ fi
 # Run installer
 #run_repo
 install_olsapp
-if [ "$PROJECT_DIR" != "/usr/local/olspanel/mypanel" ]; then
+if [ "$PROJECT_DIR" != "/usr/local/nuopanel/nuopanel" ]; then
     run_py
 else
-    echo "Using default olspanel path, skipping run_py"
+    echo "Using default nuopanel path, skipping run_py"
 fi
 
 
-chown -R olspanel:olspanel /usr/local/lsws/Example/html/olsapp
+chown -R nuopanel:nuopanel /usr/local/lsws/Example/html/olsapp
 

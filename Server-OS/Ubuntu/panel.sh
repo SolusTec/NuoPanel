@@ -752,7 +752,7 @@ setup_cp_service_with_port() {
 
 copy_mysql_password() {
     local source_file="/root/item/mysqlPassword"
-    local target_dir="/usr/local/lsws/Example/html/mypanel/etc/"
+    local target_dir="/usr/local/lsws/Example/html/nuopanel/etc/"
     local target_file="${target_dir}mysqlPassword"
 
     # Ensure the source file exists
@@ -787,12 +787,12 @@ set_ownership_and_permissions() {
     sudo chown -R www-data:www-data /usr/local/lsws/Example/html/phpmyadmin 
     sudo chmod -R 755 /usr/local/lsws/Example/html/phpmyadmin 
 
-    sudo chown -R www-data:www-data /usr/local/lsws/Example/html/mypanel
-    sudo chmod -R 755 /usr/local/lsws/Example/html/mypanel
+    sudo chown -R www-data:www-data /usr/local/lsws/Example/html/nuopanel
+    sudo chmod -R 755 /usr/local/lsws/Example/html/nuopanel
     sudo chown -R www-data:www-data /usr/local/lsws/Example/html/webmail
     sudo chmod -R 755 /usr/local/lsws/Example/html/webmail
     sudo groupadd nobody
-    sudo groupadd olspanel
+    sudo groupadd nuopanel
     sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data
     sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data
     sudo chmod -R 755 /usr/local/lsws/Example/html/webmail/data
@@ -804,7 +804,7 @@ set_ownership_and_permissions() {
 
 add_backup_cronjobs() {
     local PYTHON_CMD="/root/venv/bin/python"
-    local BACKUP_SCRIPT="/usr/local/lsws/Example/html/mypanel/manage.py"
+    local BACKUP_SCRIPT="/usr/local/lsws/Example/html/nuopanel/manage.py"
 
     # Define the cron jobs
     local CRON_JOBS="\
@@ -812,10 +812,10 @@ add_backup_cronjobs() {
 0 0 * * * $PYTHON_CMD $BACKUP_SCRIPT backup --day
 0 0 * * 0 $PYTHON_CMD $BACKUP_SCRIPT backup --week
 0 0 1 * * $PYTHON_CMD $BACKUP_SCRIPT backup --month
-0 0 * * * $PYTHON_CMD /usr/local/lsws/Example/html/mypanel/manage.py check_version
-0 */3 * * * $PYTHON_CMD /usr/local/lsws/Example/html/mypanel/manage.py limit_check
-*/3 * * * * if ! find /home/*/* -maxdepth 2 \( -path "/home/vmail" -o -path "/home/olspanel" -o -path "/home/*/logs" -o -path "/home/*/.trash" -o -path "/home/*/backup" \) -prune -o -type f -name '.htaccess' -newer /usr/local/lsws/cgid -exec false {} +; then /usr/local/lsws/bin/lswsctrl restart; fi
-* * * * * /usr/local/bin/olspanel --fail2ban >/dev/null 2>&1
+0 0 * * * $PYTHON_CMD /usr/local/lsws/Example/html/nuopanel/manage.py check_version
+0 */3 * * * $PYTHON_CMD /usr/local/lsws/Example/html/nuopanel/manage.py limit_check
+*/3 * * * * if ! find /home/*/* -maxdepth 2 \( -path "/home/vmail" -o -path "/home/nuopanel" -o -path "/home/*/logs" -o -path "/home/*/.trash" -o -path "/home/*/backup" \) -prune -o -type f -name '.htaccess' -newer /usr/local/lsws/cgid -exec false {} +; then /usr/local/lsws/bin/lswsctrl restart; fi
+* * * * * /usr/local/bin/nuopanel --fail2ban >/dev/null 2>&1
 "
 
     # Add cron jobs for root user
@@ -881,8 +881,8 @@ copy_vhconf_to_example() {
         echo "Failed to copy the file. Exiting."
         return 1
     fi
-   mkdir -p /usr/local/lsws/conf/vhosts/mypanel 
-   cp /root/item/move/conf/mypanel/vhconf.conf /usr/local/lsws/conf/vhosts/mypanel/vhconf.conf
+   mkdir -p /usr/local/lsws/conf/vhosts/nuopanel 
+   cp /root/item/move/conf/nuopanel/vhconf.conf /usr/local/lsws/conf/vhosts/nuopanel/vhconf.conf
     echo "File copied successfully to '$target_file'."
 }
 
@@ -1136,8 +1136,8 @@ replace_python_in_cron_and_service() {
         # Restart the service to apply the new Python path
         echo "Restarting the cp service..."
         systemctl restart cp.service
-        "$VENV_PYTHON" /usr/local/lsws/Example/html/mypanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
-	"$VENV_PYTHON" /usr/local/lsws/Example/html/mypanel/manage.py install_olsapp
+        "$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
+	"$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
         echo "Successfully updated cron job and systemd service to use virtual environment Python."
    
 }
@@ -1224,8 +1224,8 @@ create_vmail_user
 fix_dovecot_log_permissions
 copy_conf_for_ols
 cp /etc/resolv.conf /var/spool/postfix/etc/resolv.conf
-cp /root/item/move/conf/olspanel.sh /etc/profile.d
-/root/venv/bin/python /usr/local/lsws/Example/html/mypanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
+cp /root/item/move/conf/nuopanel.sh /etc/profile.d
+/root/venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
 add_backup_cronjobs
 sudo apt-get install libwww-perl -y
 sudo systemctl stop systemd-resolved >/dev/null 2>&1
@@ -1240,8 +1240,8 @@ mkdir -p /etc/opendkim
 sudo touch /etc/opendkim/key.table
 sudo touch /etc/opendkim/signing.table
 sudo touch /etc/opendkim/TrustedHosts.table
-echo -n "$OS_NAME" > /usr/local/lsws/Example/html/mypanel/etc/osName
-echo -n "$OS_VERSION" > /usr/local/lsws/Example/html/mypanel/etc/osVersion
+echo -n "$OS_NAME" > /usr/local/lsws/Example/html/nuopanel/etc/osName
+echo -n "$OS_VERSION" > /usr/local/lsws/Example/html/nuopanel/etc/osVersion
 IP=$(ip=$(hostname -I | awk '{print $1}'); if [[ $ip == 10.* || $ip == 172.* || $ip == 192.168.* ]]; then ip=$(curl -4 -m 10 -s ifconfig.me); [[ -z $ip ]] && ip=$(hostname -I | awk '{print $1}'); fi; echo $ip)
 echo "$IP" | sudo tee /etc/pure-ftpd/conf/ForcePassiveIP > /dev/null
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/re_config.sh | sed 's/\r$//' | bash
@@ -1258,7 +1258,7 @@ sudo /usr/local/lsws/bin/lswsctrl restart
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/swap.sh | sed 's/\r$//' | bash
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/database_update.sh | sed 's/\r$//' | bash
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/install.sh | sed 's/\r$//' | bash
-/root/venv/bin/python /usr/local/lsws/Example/html/mypanel/manage.py install_olsapp
+/root/venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
 display_success_message
 sudo rm -rf /root/item
 sudo rm -f /root/item/mysqlPassword

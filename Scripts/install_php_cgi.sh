@@ -4,13 +4,13 @@ echo "please wait... php cgi installing...."
 # LOGFILE="/root/cgi_install.log"
 # touch "$LOGFILE" 2>/dev/null || LOGFILE="/tmp/cgi_install.log"
 # exec >>"$LOGFILE" 2>&1
-HOME_PATH_FILE="/etc/olspanel/base_dir"
+HOME_PATH_FILE="/etc/nuopanel/base_dir"
 if [ -f "$HOME_PATH_FILE" ]; then
     # Read value from file
     PROJECT_DIR="$(cat "$HOME_PATH_FILE")"
 else
     # Extract from systemd service
-    PROJECT_DIR="/usr/local/lsws/Example/html/mypanel"
+    PROJECT_DIR="/usr/local/lsws/Example/html/nuopanel"
 fi
 
 # Path to the file containing MySQL root password

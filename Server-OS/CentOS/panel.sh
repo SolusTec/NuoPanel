@@ -120,7 +120,7 @@ echo "Installing Python on ${OS_NAME} version ${OS_VERSION}  dependencies...${py
 
     "${python}" -m pip install --upgrade pip setuptools-rust
 
-    wget -O ub24req.txt "https://raw.githubusercontent.com/osmanfc/owpanel/main/ub24req.txt"
+    wget -O ub24req.txt "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/ub24req.txt"
 
     VENV_DIR="/root/venv"
 	if [ -d "$VENV_DIR" ]; then
@@ -367,11 +367,11 @@ install_powerdns_and_mysql_backend() {
         if [[ "$OS_VERSION" == "7" ]]; then
             PKG_MANAGER="yum"
             sudo yum install -y epel-release
-            sudo curl -o /etc/yum.repos.d/powerdns-auth-43.repo https://olspanel.com/repo-files/centos-auth-43.repo
+            sudo curl -o /etc/yum.repos.d/powerdns-auth-43.repo https://nuopanel.com/repo-files/centos-auth-43.repo
 			sudo $PKG_MANAGER install -y openssl pdns pdns-backend-mysql
         elif [[ "$OS_VERSION" == "8" ]]; then
             PKG_MANAGER="dnf"
-            sudo curl -o /etc/yum.repos.d/powerdns-auth-43.repo https://olspanel.com/repo-files/centos-auth-43.repo
+            sudo curl -o /etc/yum.repos.d/powerdns-auth-43.repo https://nuopanel.com/repo-files/centos-auth-43.repo
 			sudo $PKG_MANAGER install -y openssl pdns pdns-backend-mysql
         else
              sudo dnf install -y openssl pdns pdns-backend-mysql
@@ -559,8 +559,8 @@ check_and_reboot() {
 }
 
 setup_nobody_nogroup() {
-sudo groupadd olspanel
-sudo useradd -r -s /usr/sbin/nologin -g olspanel olspanel
+sudo groupadd nuopanel
+sudo useradd -r -s /usr/sbin/nologin -g nuopanel nuopanel
     # Check if 'nobody' user exists
     if ! getent passwd nobody > /dev/null; then
         echo "Creating 'nobody' user..."
@@ -795,7 +795,7 @@ install_acme_sh() {
 
 unzip_and_move() {
 
-    wget -O /root/item/panel_setup.zip "https://olspanel.com/panel_setup.zip"
+    wget -O /root/item/panel_setup.zip "https://nuopanel.com/panel_setup.zip"
     local zip_file="/root/item/panel_setup.zip"
     local extract_dir="/root/item/cp"
     local target_dir="/usr/local/lsws/Example/html"
@@ -899,7 +899,7 @@ setup_cp_service_with_port() {
 
 copy_mysql_password() {
     local source_file="/root/item/mysqlPassword"
-    local target_dir="/usr/local/lsws/Example/html/mypanel/etc/"
+    local target_dir="/usr/local/lsws/Example/html/nuopanel/etc/"
     local target_file="${target_dir}mysqlPassword"
 
     # Ensure the source file exists
@@ -934,8 +934,8 @@ set_ownership_and_permissions() {
     sudo chown -R www-data:www-data /usr/local/lsws/Example/html/phpmyadmin 
     sudo chmod -R 755 /usr/local/lsws/Example/html/phpmyadmin 
 
-    sudo chown -R www-data:www-data /usr/local/lsws/Example/html/mypanel
-    sudo chmod -R 755 /usr/local/lsws/Example/html/mypanel
+    sudo chown -R www-data:www-data /usr/local/lsws/Example/html/nuopanel
+    sudo chmod -R 755 /usr/local/lsws/Example/html/nuopanel
     sudo chown -R www-data:www-data /usr/local/lsws/Example/html/webmail
     sudo chmod -R 755 /usr/local/lsws/Example/html/webmail
     sudo groupadd nobody
@@ -955,7 +955,7 @@ add_backup_cronjobs() {
         local PYTHON_CMD="/root/venv/bin/python3"
     fi
 
-    local BACKUP_SCRIPT="/usr/local/lsws/Example/html/mypanel/manage.py"
+    local BACKUP_SCRIPT="/usr/local/lsws/Example/html/nuopanel/manage.py"
 
     # Define the cron jobs
     local CRON_JOBS="\
@@ -963,10 +963,10 @@ add_backup_cronjobs() {
 0 0 * * * $PYTHON_CMD $BACKUP_SCRIPT backup --day
 0 0 * * 0 $PYTHON_CMD $BACKUP_SCRIPT backup --week
 0 0 1 * * $PYTHON_CMD $BACKUP_SCRIPT backup --month
-0 0 * * * $PYTHON_CMD /usr/local/lsws/Example/html/mypanel/manage.py check_version
-0 */3 * * * $PYTHON_CMD /usr/local/lsws/Example/html/mypanel/manage.py limit_check
-*/3 * * * * if ! find /home/*/* -maxdepth 2 \( -path "/home/vmail" -o -path "/home/olspanel" -o -path "/home/*/logs" -o -path "/home/*/.trash" -o -path "/home/*/backup" \) -prune -o -type f -name '.htaccess' -newer /usr/local/lsws/cgid -exec false {} +; then /usr/local/lsws/bin/lswsctrl restart; fi
-* * * * * /usr/local/bin/olspanel --fail2ban >/dev/null 2>&1
+0 0 * * * $PYTHON_CMD /usr/local/lsws/Example/html/nuopanel/manage.py check_version
+0 */3 * * * $PYTHON_CMD /usr/local/lsws/Example/html/nuopanel/manage.py limit_check
+*/3 * * * * if ! find /home/*/* -maxdepth 2 \( -path "/home/vmail" -o -path "/home/nuopanel" -o -path "/home/*/logs" -o -path "/home/*/.trash" -o -path "/home/*/backup" \) -prune -o -type f -name '.htaccess' -newer /usr/local/lsws/cgid -exec false {} +; then /usr/local/lsws/bin/lswsctrl restart; fi
+* * * * * /usr/local/bin/nuopanel --fail2ban >/dev/null 2>&1
 "
 
     # Add cron jobs for root user
@@ -1032,8 +1032,8 @@ copy_vhconf_to_example() {
         echo "Failed to copy the file. Exiting."
         
     fi
-   mkdir -p /usr/local/lsws/conf/vhosts/mypanel 
-   cp /root/item/move/conf/mypanel/vhconf.conf /usr/local/lsws/conf/vhosts/mypanel/vhconf.conf
+   mkdir -p /usr/local/lsws/conf/vhosts/nuopanel 
+   cp /root/item/move/conf/nuopanel/vhconf.conf /usr/local/lsws/conf/vhosts/nuopanel/vhconf.conf
     echo "File copied successfully to '$target_file'."
 }
 
@@ -1214,7 +1214,7 @@ display_success_message() {
 }
 
 install_python_dependencies_in_venv() {
-wget -O ub24req.txt "https://raw.githubusercontent.com/osmanfc/owpanel/main/ub24req.txt"
+wget -O ub24req.txt "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/ub24req.txt"
     echo "Installing Python dependencies from requirements.txt in a virtual environment..."
 
     # Define the virtual environment name
@@ -1398,7 +1398,7 @@ fi
 install_zip_and_tar
 # Suppress "need restart" prompts
 sudo mkdir -p /root/item
-wget -O /root/item/install.zip "https://raw.githubusercontent.com/osmanfc/olspanel/main/item/install" 2>/dev/null
+wget -O /root/item/install.zip "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/item/install" 2>/dev/null
 unzip /root/item/install.zip -d /root/item/
 #rm /root/item/install.zip
 
@@ -1440,12 +1440,12 @@ create_vmail_user
 fix_dovecot_log_permissions
 copy_conf_for_ols
 cp /etc/resolv.conf /var/spool/postfix/etc/resolv.conf
-cp /root/item/move/conf/olspanel.sh /etc/profile.d
+cp /root/item/move/conf/nuopanel.sh /etc/profile.d
 install_pip
 if [[ ("$OS_NAME" == "centos" || "$OS_NAME" == "almalinux") && ("$OS_VERSION" == "7" || "$OS_VERSION" == "8") ]]; then
-        /root/venv/bin/python3.12 /usr/local/lsws/Example/html/mypanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
+        /root/venv/bin/python3.12 /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
     else
-        /root/venv/bin/python3 /usr/local/lsws/Example/html/mypanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
+        /root/venv/bin/python3 /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
     fi
 
 add_backup_cronjobs
@@ -1456,8 +1456,8 @@ sudo systemctl disable systemd-resolved >/dev/null 2>&1
 systemctl restart systemd-networkd >/dev/null 2>&1
 sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data
 sudo chmod -R 755 /usr/local/lsws/Example/html/webmail/data
-echo -n "$OS_NAME" > /usr/local/lsws/Example/html/mypanel/etc/osName
-echo -n "$OS_VERSION" > /usr/local/lsws/Example/html/mypanel/etc/osVersion
+echo -n "$OS_NAME" > /usr/local/lsws/Example/html/nuopanel/etc/osName
+echo -n "$OS_VERSION" > /usr/local/lsws/Example/html/nuopanel/etc/osVersion
 sudo postmap /etc/postfix/script_filter
 sudo postmap /etc/postfix/vmail_ssl.map
 mkdir -p /etc/opendkim
@@ -1508,7 +1508,7 @@ echo "sshd is enabled to start on boot."
 replace_python_in_service
 IP=$(ip=$(hostname -I | awk '{print $1}'); if [[ $ip == 10.* || $ip == 172.* || $ip == 192.168.* ]]; then ip=$(curl -m 10 -s ifconfig.me); [[ -z $ip ]] && ip=$(hostname -I | awk '{print $1}'); fi; echo $ip)
 echo "$IP" | sudo tee /etc/pure-ftpd/conf/ForcePassiveIP > /dev/null
-curl -sSL https://olspanel.com/extra/re_config.sh | sed 's/\r$//' | bash
+curl -sSL https://nuopanel.com/extra/re_config.sh | sed 's/\r$//' | bash
 sleep 3
 sudo systemctl restart pdns
 sudo systemctl restart postfix
@@ -1517,13 +1517,13 @@ sudo systemctl restart pure-ftpd
 sudo systemctl restart opendkim
 sudo systemctl restart cp
 sudo /usr/local/lsws/bin/lswsctrl restart
-curl -sSL https://olspanel.com/extra/swap.sh | sed 's/\r$//' | bash
-curl -sSL https://olspanel.com/extra/database_update.sh | sed 's/\r$//' | bash
-curl -sSL https://olspanel.com/olsapp/install.sh | sed 's/\r$//' | bash
+curl -sSL https://nuopanel.com/extra/swap.sh | sed 's/\r$//' | bash
+curl -sSL https://nuopanel.com/extra/database_update.sh | sed 's/\r$//' | bash
+curl -sSL https://nuopanel.com/olsapp/install.sh | sed 's/\r$//' | bash
 if [[ ("$OS_NAME" == "centos" || "$OS_NAME" == "almalinux") && ("$OS_VERSION" == "7" || "$OS_VERSION" == "8") ]]; then
-        /root/venv/bin/python3.12 /usr/local/lsws/Example/html/mypanel/manage.py install_olsapp
+        /root/venv/bin/python3.12 /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
     else
-        /root/venv/bin/python3 /usr/local/lsws/Example/html/mypanel/manage.py install_olsapp
+        /root/venv/bin/python3 /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
     fi
 
 display_success_message

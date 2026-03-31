@@ -1,14 +1,14 @@
 #!/bin/bash
-HOME_PATH_FILE="/etc/olspanel/base_dir"
+HOME_PATH_FILE="/etc/nuopanel/base_dir"
 if [ -f "$HOME_PATH_FILE" ]; then
     # Read value from file
     PROJECT_DIR="$(cat "$HOME_PATH_FILE")"
 else
     # Extract from systemd service
-    PROJECT_DIR="/usr/local/lsws/Example/html/mypanel"
+    PROJECT_DIR="/usr/local/lsws/Example/html/nuopanel"
 fi
 # Define swap file path
-SWAP_File="/olspanel.swap"
+SWAP_File="/nuopanel.swap"
 
 # Get total RAM and current swap in MiB
 Total_RAM=$(free -m | awk '/^Mem:/ { print $2 }')
@@ -58,7 +58,7 @@ fi
 
 
 
-wget -O /etc/profile.d/olspanel.sh "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/Banner-SSH.sh?$(date +%s)"
+wget -O /etc/profile.d/nuopanel.sh "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/Banner-SSH.sh?$(date +%s)"
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/ufw_int.sh?$(date +%s) | sed 's/\r$//' | bash
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/install_php_cgi.sh?$(date +%s) | sed 's/\r$//' | bash
 
@@ -66,9 +66,9 @@ wget -O /usr/local/bin/install_cp_plugin "https://raw.githubusercontent.com/Solu
 sed -i 's/\r$//' /usr/local/bin/install_cp_plugin
 chmod +x /usr/local/bin/install_cp_plugin
 
-wget -O /usr/local/bin/olspanel "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/olspanel?$(date +%s)"
-sed -i 's/\r$//' /usr/local/bin/olspanel
-chmod +x /usr/local/bin/olspanel
+wget -O /usr/local/bin/nuopanel "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/nuopanel?$(date +%s)"
+sed -i 's/\r$//' /usr/local/bin/nuopanel
+chmod +x /usr/local/bin/nuopanel
 
 
 
