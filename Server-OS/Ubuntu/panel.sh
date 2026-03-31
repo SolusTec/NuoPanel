@@ -931,7 +931,6 @@ install_all_lsphp_versions() {
     sudo apt-get install -y software-properties-common
 
     # Add the OpenLiteSpeed PHP repository
-    sudo add-apt-repository -y ppa:openlitespeed/php
 
    
     # Install PHP versions from 7.4 to 8.4
@@ -939,7 +938,6 @@ install_all_lsphp_versions() {
         echo "Installing PHP $version..."
         sudo apt-get install -y lsphp"$version" lsphp"$version"-common lsphp"$version"-mysql
         sudo apt-get install -y lsphp"$version"-curl
-	sudo apt-get install -y lsphp"$version"-json
         # Check if installation was successful
         if [ -x "/usr/local/lsws/lsphp$version/bin/php" ]; then
             echo "PHP $version installed successfully!"

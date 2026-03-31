@@ -22,20 +22,21 @@ fi
 
 
 run_py() {
-    local PYTHON_CMD
-
-    if [[ ("$OS_NAME" == "centos" || "$OS_NAME" == "almalinux") && ("$OS_VERSION" == "7" || "$OS_VERSION" == "8") ]]; then
-        PYTHON_CMD="/root/venv/bin/python3.12"
-    elif [[ "$OS_NAME" == "ubuntu" && "$OS_VERSION" -ge 24 ]]; then
-        PYTHON_CMD="/root/venv/bin/python"
-    elif [[ "$OS_NAME" == "ubuntu" && "$OS_VERSION" -lt 24 ]]; then
-        PYTHON_CMD=$(which python3)
-    else
+    # SEMPRE usar venv do root, independente do OS
+    local PYTHON_CMD="/root/venv/bin/python"
+    
+    # Se não existir, tentar python3
+    if [ ! -x "$PYTHON_CMD" ]; then
         PYTHON_CMD="/root/venv/bin/python3"
     fi
+    
+    # Se ainda não existir, tentar python3.12
+    if [ ! -x "$PYTHON_CMD" ]; then
+        PYTHON_CMD="/root/venv/bin/python3.12"
+    fi
 
-    echo "Trying $PYTHON_CMD $PROJECT_DIR/manage.py install_olsapp"
-    $PYTHON_CMD $PROJECT_DIR/manage.py install_olsapp
+    echo "Trying $PYTHON_CMD $PROJECT_DIR/manage.py install_nuopanel_app"
+    $PYTHON_CMD $PROJECT_DIR/manage.py install_nuopanel_app
     local STATUS=$?
 
     if [[ $STATUS -ne 0 ]]; then
@@ -43,16 +44,15 @@ run_py() {
 
         # Fallback Python interpreters to try if the first fails
         local FALLBACKS=(
-            "/usr/bin/python3"
-            "$(which python3)"
-            "/usr/local/bin/python3"
             "/root/venv/bin/python"
+            "/root/venv/bin/python3"
+            "/root/venv/bin/python3.12"
         )
 
         for alt_python in "${FALLBACKS[@]}"; do
             if [[ -x "$alt_python" ]]; then
-                echo "Trying fallback: $alt_python $PROJECT_DIR/manage.py install_olsapp"
-                $alt_python $PROJECT_DIR/manage.py install_olsapp
+                echo "Trying fallback: $alt_python $PROJECT_DIR/manage.py install_nuopanel_app"
+                $alt_python $PROJECT_DIR/manage.py install_nuopanel_app
                 STATUS=$?
                 if [[ $STATUS -eq 0 ]]; then
                     echo "Succeeded with fallback: $alt_python"
@@ -69,22 +69,22 @@ run_py() {
 }
 
 
-create_olsapp_conf() {
+create_nuopanel_conf() {
     CONF_DIR="/usr/local/nuopanel/nuopanel/plugin"
-    CONF_FILE="$CONF_DIR/olsapp.conf"
+    CONF_FILE="$CONF_DIR/nuopanel-app.conf"
 
-    echo "Creating olsapp plugin config..."
+    echo "Creating nuopanel-app plugin config..."
 
     mkdir -p "$CONF_DIR"
 
-    cat > "$CONF_FILE" <<'EOF'
+    cat > "$CONF_FILE" <<'CONFEOF'
 # The Displayname.
-name=Olsapp
+name=NuoPanelApp
 
 # The application's service.
 service=both
 
-url=/3rdparty/olsapp/index.php 
+url=/3rdparty/nuopanel-app/index.php 
 
 header[HTTP_AUTOLOGINUSER]=%dbusername%
 header[HTTP_AUTOLOGINPASS]=%dbuserpass% 
@@ -94,56 +94,56 @@ user=root
 group=root 
 
 # Features required
-features=olsapp
+features=nuopanel-app
 
 # Media  required
-icon=/media/icon/olsapp.png 
+icon=/media/icon/nuopanel-app.png 
 
 #short
 sorder=99
 
 #hide from display
 display_hide = true
-EOF
+CONFEOF
 
     echo "Config created at: $CONF_FILE"
 }
 
-install_olsapp() {
+install_nuopanel_app() {
     ZIP_URL="https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Assets/olsapp.zip?ts=$(date +%s)"
 
     # If project is default nuopanel path
     if [ "$PROJECT_DIR" = "/usr/local/nuopanel/nuopanel" ]; then
-        DEST_DIR="/usr/local/nuopanel/nuopanel/3rdparty/olsapp"
-        ZIP_FILE="/usr/local/nuopanel/nuopanel/3rdparty/olsapp.zip"
+        DEST_DIR="/usr/local/nuopanel/nuopanel/3rdparty/nuopanel-app"
+        ZIP_FILE="/usr/local/nuopanel/nuopanel/3rdparty/nuopanel-app.zip"
         
     else
-        DEST_DIR="${PROJECT_DIR%/*}/olsapp"
-        ZIP_FILE="${PROJECT_DIR%/*}/olsapp.zip"
+        DEST_DIR="${PROJECT_DIR%/*}/nuopanel-app"
+        ZIP_FILE="${PROJECT_DIR%/*}/nuopanel-app.zip"
     fi
 
-    echo "Downloading olsapp..."
+    echo "Downloading nuopanel-app..."
     wget -O "$ZIP_FILE" "$ZIP_URL" --no-cache --no-cookies
 
-    echo "Extracting olsapp..."
+    echo "Extracting nuopanel-app..."
     mkdir -p "$DEST_DIR"
     unzip -o "$ZIP_FILE" -d "$DEST_DIR"
     rm -f "$ZIP_FILE"
+    
 if [ "$PROJECT_DIR" = "/usr/local/nuopanel/nuopanel" ]; then
-create_olsapp_conf
-wget -O "$DEST_DIR/conf.php" "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/conf_for_bin.ph" --no-cache --no-cookies
-chown -R nuopanel:nuopanel $DEST_DIR
+    create_nuopanel_conf
+    wget -O "$DEST_DIR/conf.php" "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/conf_for_bin.ph" --no-cache --no-cookies
+    chown -R nuopanel:nuopanel $DEST_DIR
 else
-chown -R nuopanel:nuopanel ${PROJECT_DIR%/*}/olsapp
+    chown -R nuopanel:nuopanel ${PROJECT_DIR%/*}/nuopanel-app
 fi
-    echo "olsapp installed at: $DEST_DIR"
+    echo "nuopanel-app installed at: $DEST_DIR"
 }
 
 
 
 # Run installer
-#run_repo
-install_olsapp
+install_nuopanel_app
 if [ "$PROJECT_DIR" != "/usr/local/nuopanel/nuopanel" ]; then
     run_py
 else
@@ -151,5 +151,4 @@ else
 fi
 
 
-chown -R nuopanel:nuopanel /usr/local/lsws/Example/html/olsapp
-
+chown -R nuopanel:nuopanel /usr/local/lsws/Example/html/nuopanel-app 2>/dev/null || true

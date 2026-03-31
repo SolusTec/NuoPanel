@@ -222,7 +222,7 @@ create_database_and_user() {
     # Generate a random password for the new user
     local DB_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 16)
     echo -n "${DB_PASSWORD}" > /root/db_credentials_panel.txt
-    chmod 600 /root/db_credentials_${DB_USER}.txt
+    chmod 600 /root/db_credentials_panel.txt
    
 
     echo "Creating database and user..."
@@ -1044,7 +1044,6 @@ sudo ${PACKAGE_MANAGER} search lsphp
     sudo ${PACKAGE_MANAGER} install -y software-properties-common
 
     # Add the OpenLiteSpeed PHP repository
-    #sudo add-apt-repository -y ppa:openlitespeed/php
 
     # Update package lists
     #sudo apt-get update
@@ -1054,7 +1053,6 @@ sudo ${PACKAGE_MANAGER} search lsphp
         echo "Installing PHP $version..."
         sudo ${PACKAGE_MANAGER} install -y lsphp"$version" lsphp"$version"-common lsphp"$version"-mysqlnd
 	sudo ${PACKAGE_MANAGER} install -y lsphp"$version"-curl
-        sudo ${PACKAGE_MANAGER} install -y lsphp"$version"-json
 
         # Check if installation was successful
         if [ -x "/usr/local/lsws/lsphp$version/bin/php" ]; then

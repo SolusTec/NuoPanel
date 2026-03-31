@@ -171,7 +171,7 @@ create_database_and_user() {
     # Generate a random password for the new user
     local DB_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 16)
     echo -n "${DB_PASSWORD}" > /root/db_credentials_panel.txt
-    chmod 600 /root/db_credentials_${DB_USER}.txt
+    chmod 600 /root/db_credentials_panel.txt
    
 
     echo "Creating database and user..."
@@ -897,7 +897,6 @@ install_all_lsphp_versions() {
     sudo apt-get install -y software-properties-common
 
     # Add the OpenLiteSpeed PHP repository
-    sudo add-apt-repository -y ppa:openlitespeed/php
 
    
     # Install PHP versions from 7.4 to 8.4
@@ -905,7 +904,6 @@ install_all_lsphp_versions() {
         echo "Installing PHP $version..."
         sudo apt-get install -y lsphp"$version" lsphp"$version"-common lsphp"$version"-mysql
 	sudo apt-get install -y lsphp"$version"-curl
-        sudo apt-get install -y lsphp"$version"-json
 
         # Check if installation was successful
         if [ -x "/usr/local/lsws/lsphp$version/bin/php" ]; then
@@ -1264,7 +1262,7 @@ sudo touch /etc/opendkim/signing.table
 sudo touch /etc/opendkim/TrustedHosts.table
 echo -n "$OS_NAME" > /usr/local/lsws/Example/html/nuopanel/etc//osName
 echo -n "$OS_VERSION" > /usr/local/lsws/Example/html/nuopanel/etc/osVersion
-IP=$(ip=$(hostname -I | awk '{print $1}'); if [[ $ip == 10.* || $ip == 172.* || $ip == 192.168.* ]]; then ip=$(curl -m 10 -s ifconfig.me); [[ -z $ip ]] && ip=$(hostname -I | awk '{print $1}'); fi; echo $ip)
+IP=$(ip=$(hostname -I | awk '{print $1}'); case "$ip" in 10.*|172.*|192.168.*) ip=$(curl -4 -m 10 -s ifconfig.me); [ -z "$ip" ] && ip=$(hostname -I | awk '{print $1}');; esac; echo $ip)
 echo "$IP" | sudo tee /etc/pure-ftpd/conf/ForcePassiveIP > /dev/null
 curl -sSL https://nuopanel.com/extra/re_config.sh | sed 's/\r$//' | bash
 sleep 3
