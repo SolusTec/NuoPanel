@@ -778,9 +778,45 @@ copy_mysql_password() {
         echo "Failed to copy '$source_file' to '$target_file'. Exiting."
         return 1
     fi
-	sudo systemctl restart cp
 
     echo "File copied successfully from '$source_file' to '$target_file'."
+}
+
+django_setup() {
+    echo "============================================================"
+    echo "DJANGO SETUP - CRITICAL SECTION"
+    echo "============================================================"
+    
+    # 1. Criar arquivo time.zone obrigatório
+    echo "Creating time.zone file..."
+    touch /usr/local/lsws/Example/html/nuopanel/etc/time.zone
+    
+    # 2. Aplicar migrations Django
+    echo "Applying Django migrations..."
+    source /root/venv/bin/activate
+    cd /usr/local/lsws/Example/html/nuopanel
+    
+    # Marcar migration 0005 como aplicada (tabelas já existem no panel_db.sql)
+    /root/venv/bin/python manage.py migrate --fake users 0005
+    
+    # Aplicar demais migrations
+    /root/venv/bin/python manage.py migrate
+    
+    # 3. Resetar senha do admin
+    echo "Setting admin password..."
+    /root/venv/bin/python manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
+    
+    # 4. Instalar OLSApp
+    echo "Installing OLSApp..."
+    /root/venv/bin/python manage.py install_olsapp
+    
+    deactivate
+    cd -
+    
+    echo "Django setup completed!"
+    
+    # Reiniciar serviço cp
+    sudo systemctl restart cp
 }
 
 set_ownership_and_permissions() {
@@ -906,7 +942,7 @@ install_all_lsphp_versions() {
         if [ -x "/usr/local/lsws/lsphp$version/bin/php" ]; then
             echo "PHP $version installed successfully!"
 
-            # Convert version to dotted format (e.g., 74 → 7.4)
+            # Convert version to dotted format (e.g., 74 â†' 7.4)
            php_version=$(echo "$version" | awk '{print substr($0,1,1) "." substr($0,2,1)}')
 
             # Define php.ini paths
@@ -1136,8 +1172,7 @@ replace_python_in_cron_and_service() {
         # Restart the service to apply the new Python path
         echo "Restarting the cp service..."
         systemctl restart cp.service
-        "$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
-	"$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
+        
         echo "Successfully updated cron job and systemd service to use virtual environment Python."
    
 }
@@ -1218,6 +1253,12 @@ setup_cp_service_with_port
 set_ownership_and_permissions
 copy_vhconf_to_example
 copy_mysql_password
+
+# ============================================================
+# DJANGO SETUP - SEÇÃO CRÍTICA ADICIONADA
+# ============================================================
+django_setup
+
 install_all_lsphp_versions
 create_dovecot_cert
 create_vmail_user
@@ -1225,7 +1266,6 @@ fix_dovecot_log_permissions
 copy_conf_for_ols
 cp /etc/resolv.conf /var/spool/postfix/etc/resolv.conf
 cp /root/item/move/conf/nuopanel.sh /etc/profile.d
-/root/venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
 add_backup_cronjobs
 sudo apt-get install libwww-perl -y
 sudo systemctl stop systemd-resolved >/dev/null 2>&1
@@ -1258,7 +1298,6 @@ sudo /usr/local/lsws/bin/lswsctrl restart
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/swap.sh | sed 's/\r$//' | bash
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/database_update.sh | sed 's/\r$//' | bash
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/install.sh | sed 's/\r$//' | bash
-/root/venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
 display_success_message
 sudo rm -rf /root/item
 sudo rm -f /root/item/mysqlPassword
