@@ -145,6 +145,10 @@ EOF
         return 1  # Skip task and continue with the script
     fi
 
+    
+    # Save root password to file
+    echo "$MYSQL_ROOT_PASSWORD" > /root/db_credentials_root.txt
+    chmod 600 /root/db_credentials_root.txt
     echo "MariaDB installation and root password configuration completed successfully."
 }
 
@@ -733,6 +737,8 @@ setup_cp_service_with_port() {
     echo "  - Public (HTTPS): *:${public_port}"
 
     # Save public port to file
+    # Create directory if it doesn't exist
+    mkdir -p /root/item
     echo "${public_port}" > "$port_file"
     if [ $? -ne 0 ]; then
         echo "Failed to save port to '$port_file'. Exiting."
