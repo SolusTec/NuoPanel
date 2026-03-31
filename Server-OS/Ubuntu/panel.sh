@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 UBUNTU_VERSION=$(lsb_release -sr | cut -d. -f1)
 
@@ -775,6 +775,13 @@ copy_mysql_password() {
     echo "Copying '$source_file' to '$target_file'..."
     cp "$source_file" "$target_file"
     if [ $? -ne 0 ]; then
+        echo "Failed to copy '$source_file' to '$target_file'. Exiting."
+        return 1
+    fi
+	sudo systemctl restart cp
+
+    echo "File copied successfully from '$source_file' to '$target_file'."
+}
 
 django_setup() {
     echo "============================================================"
@@ -813,13 +820,6 @@ django_setup() {
     sudo systemctl restart cp
 }
 
-        echo "Failed to copy '$source_file' to '$target_file'. Exiting."
-        return 1
-    fi
-	sudo systemctl restart cp
-
-    echo "File copied successfully from '$source_file' to '$target_file'."
-}
 
 set_ownership_and_permissions() {
     sudo chown -R www-data:www-data /usr/local/lsws/Example/html/phpmyadmin 
@@ -1174,8 +1174,8 @@ replace_python_in_cron_and_service() {
         # Restart the service to apply the new Python path
         echo "Restarting the cp service..."
         systemctl restart cp.service
-        # REMOVIDO - Agora é feito via django_setup() -         "$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
-	# REMOVIDO - Agora é feito via django_setup() - 	"$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
+        # REMOVIDO - Agora via django_setup() -         "$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
+	# REMOVIDO - Agora via django_setup() - 	"$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
         echo "Successfully updated cron job and systemd service to use virtual environment Python."
    
 }
@@ -1260,7 +1260,6 @@ copy_mysql_password
 # DJANGO SETUP - CHAMADA PRINCIPAL
 # ============================================================
 django_setup
-
 install_all_lsphp_versions
 create_dovecot_cert
 create_vmail_user
@@ -1268,6 +1267,7 @@ fix_dovecot_log_permissions
 copy_conf_for_ols
 cp /etc/resolv.conf /var/spool/postfix/etc/resolv.conf
 cp /root/item/move/conf/nuopanel.sh /etc/profile.d
+# REMOVIDO - Agora via django_setup() - /root/venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
 add_backup_cronjobs
 sudo apt-get install libwww-perl -y
 sudo systemctl stop systemd-resolved >/dev/null 2>&1
@@ -1300,6 +1300,7 @@ sudo /usr/local/lsws/bin/lswsctrl restart
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/swap.sh | sed 's/\r$//' | bash
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/database_update.sh | sed 's/\r$//' | bash
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/install.sh | sed 's/\r$//' | bash
+# REMOVIDO - Agora via django_setup() - /root/venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
 display_success_message
 sudo rm -rf /root/item
 sudo rm -f /root/item/mysqlPassword
