@@ -703,12 +703,12 @@ unzip_and_move() {
     echo "Unzipping and moving completed successfully."
 }
 
+
 setup_cp_service_with_port() {
     local service_file="/root/item/move/conf/cp.service"
     local httpd_file="/root/item/move/conf/httpd_config.conf"
     local target_dir="/etc/systemd/system/"
     local target_file="${target_dir}cp.service"
-    local port_file="/root/item/port.txt"
 
     # Ensure the service file exists
     if [ ! -f "$service_file" ]; then
@@ -716,57 +716,39 @@ setup_cp_service_with_port() {
         return 1
     fi
 
-    # Generate a random 4-digit port between 1000 and 9999
-    local new_port=$(shuf -i 1000-9999 -n 1)
-
-    # Save the new port to the port file
-    echo "Saving the new port '$new_port' to '$port_file'..."
-    echo "$new_port" > "$port_file"
-    if [ $? -ne 0 ]; then
-        echo "Failed to save the port to '$port_file'. Exiting."
+    # Check if port 8443 is already in use
+    if netstat -tuln | grep -q ":8443 "; then
+        echo "⚠️  Warning: Port 8443 is already in use!"
+        echo "Please free up port 8443 before continuing."
         return 1
     fi
 
-    # Replace the old port (2083) in the existing service file
-    echo "Updating the port in '$httpd_file' to '$new_port'..."
-    sed -i "s/2083/$new_port/g" "$httpd_file"
-    if [ $? -ne 0 ]; then
-        echo "Failed to update the port in the service file. Exiting."
-        return 1
-    fi
+    echo "Using fixed port 8443 for NuoPanel..."
 
-    # Copy the updated service file to the systemd directory
-    echo "Copying the service file to '$target_dir'..."
+    # Copy the service file to systemd directory (no port substitution needed)
+    echo "Copying service file to '$target_dir'..."
     cp "$service_file" "$target_file"
     if [ $? -ne 0 ]; then
         echo "Failed to copy the service file. Exiting."
         return 1
     fi
 
-    # Reload systemd daemon to recognize the updated service
+    # Copy httpd config (no port substitution needed)
+    echo "Copying httpd config..."
+    cp "$httpd_file" /usr/local/lsws/conf/httpd_config.conf
+    if [ $? -ne 0 ]; then
+        echo "Failed to copy httpd config. Exiting."
+        return 1
+    fi
+
+    # Reload systemd daemon
     echo "Reloading systemd daemon..."
     sudo systemctl daemon-reload
 
-    # Start the service
-    echo "Starting 'cp' service..."
-    sudo systemctl start cp
-    if [ $? -ne 0 ]; then
-        echo "Failed to start 'cp' service. Exiting."
-        return 1
-    fi
-
-    # Enable the service to start on boot
-    echo "Enabling 'cp' service to start on boot..."
-    sudo systemctl enable cp
-    if [ $? -ne 0 ]; then
-        echo "Failed to enable 'cp' service. Exiting."
-        return 1
-    fi
-	
-    allow_ports $new_port
-    echo "'cp' service setup completed successfully with port '$new_port'."
+    echo "✅ Service configured to use port 8443"
+    echo "   - Django: http://127.0.0.1:8443"
+    echo "   - Public access: https://your-server:8443"
 }
-
 copy_mysql_password() {
     local source_file="/root/item/mysqlPassword"
     local target_dir="/usr/local/lsws/Example/html/nuopanel/etc/"
