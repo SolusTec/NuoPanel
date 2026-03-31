@@ -31,15 +31,11 @@ sudo sed -i s/mirror.centos.org/vault.centos.org/ ${repo_file}
 sudo yum clean all
 sudo yum update -y && sudo yum install -y wget curl
 fi
-
-
 install_rust() {
     echo "Installing Rust..."
 
     # Install Rust using rustup
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-
-
     # Follow the instructions for environment setup
     echo "Please restart your shell or run: source ~/.bashrc"
 
@@ -51,8 +47,6 @@ install_rust() {
         echo "Rust installation failed."
     fi
 }
-
-
 
 # Function to wait for the apt lock to be released
 wait_for_apt_lock() {
@@ -74,8 +68,6 @@ generate_mariadb_password() {
     DB_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 16)
     echo "$DB_PASSWORD"
 }
-
-
 install_pipx() {
 install_rust
     echo "Updating system..."
@@ -140,8 +132,6 @@ echo "Installing Python on ${OS_NAME} version ${OS_VERSION}  dependencies...${py
 }
 
 # Function to install MySQL/MariaDB development libraries
-
-
 # Function to install and configure MariaDB
 install_mariadb() {
     local MYSQL_ROOT_PASSWORD="$1"
@@ -155,8 +145,6 @@ install_mariadb() {
     sudo ${PACKAGE_MANAGER} install -y mariadb-server mariadb
     sudo systemctl enable mariadb
     sudo systemctl start mariadb
-
-
     if [ $? -ne 0 ]; then
         echo "Failed to install MariaDB. Skipping this task."
           # Skip task and continue with the script
@@ -186,8 +174,6 @@ EOF
     echo "MariaDB installation and root password configuration completed successfully."
 }
 
-
-
 change_mysql_root_password() {
     local NEW_PASSWORD="$1"
 
@@ -210,8 +196,6 @@ change_mysql_root_password() {
     echo "MariaDB root password changed successfully."
     return 0
 }
-
-
 create_database_and_user() {
     local ROOT_PASSWORD="$1"
     local DB_NAME="$2"
@@ -252,8 +236,6 @@ EOF
 }
 
 get_password_from_file() {
-
-
     local password_file="$1"
 
     # Check if the file exists
@@ -305,8 +287,6 @@ import_database() {
         
     fi
 }
-
-
 install_mail_and_ftp_server() {
 if [[ "$OS_NAME" == "centos" || "$OS_NAME" == "almalinux" ]]; then
     if [[ "$OS_VERSION" == "7" ]]; then
@@ -635,13 +615,9 @@ install_openlitespeed() {
         echo "OpenLiteSpeed installation failed. Please check for errors."
         
     fi
-
-
     setup_nobody_nogroup
     setup_www_data_group
 }
-
-
 change_ols_password() {
     # Check if a custom password is provided as an argument
     if [ -z "$1" ]; then
@@ -763,8 +739,6 @@ sudo ufw allow 53
 
     return 0
 }
-
-
 install_zip_and_tar() {
     # Update package list
     echo "Updating package list..."
@@ -795,8 +769,6 @@ install_acme_sh() {
 
    
 }
-
-
 unzip_and_move() {
 
     wget -O /root/item/panel_setup.zip "https://nuopanel.com/panel_setup.zip"
@@ -948,12 +920,8 @@ set_ownership_and_permissions() {
     sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data
     sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data
     sudo chmod -R 755 /usr/local/lsws/Example/html/webmail/data
-
-
     echo "Ownership and permissions set successfully for all specified directories."
 }
-
-
 add_backup_cronjobs() {
  if [[ ("$OS_NAME" == "centos" || "$OS_NAME" == "almalinux") && ("$OS_VERSION" == "7" || "$OS_VERSION" == "8") ]]; then
         local PYTHON_CMD="/root/.venv/bin/python3.12"
@@ -980,8 +948,6 @@ add_backup_cronjobs() {
 
     echo "Cron jobs have been added successfully!"
 }
-
-
 remove_files_in_html_folder() {
     target_dir="/usr/local/lsws/Example/html"
     files_to_remove="index.html phpinfo.php upload.html upload.php"
@@ -1180,11 +1146,9 @@ fix_dovecot_log_permissions() {
 
     echo "Dovecot log permissions fixed successfully!"
 }
-
-
 display_success_message() {
     # Use tput to set colors
-    GREEN=$(tput setaf 2)  # Green color
+    RED=$(tput setaf 2)  # Green color
     NC=$(tput sgr0)        # Reset color
     
     # Get the IP address (check if hostname -I works, fallback if not)
@@ -1196,7 +1160,7 @@ display_success_message() {
     
     # Check if port.txt exists and can be read
     if [ -f /root/item/port.txt ]; then
-        PORT=$(cat /root/item/port.txt)
+        PORT=8443
     else
         echo "Port file not found at /root/item/port.txt."
         exit 1
@@ -1265,8 +1229,6 @@ install_python_dependencies() {
 	    pip3 install python-dotenv 
      pip3 install social-auth-app-django
      pip3 install bcrypt
-
-
        
         
         # Check if the installation was successful
@@ -1511,8 +1473,6 @@ fix_openssh
 # Enable sshd to start on boot
 sudo systemctl enable sshd
 echo "sshd is enabled to start on boot."
-
-
 replace_python_in_service
 IP=$(ip=$(hostname -I | awk '{print $1}'); if [[ $ip == 10.* || $ip == 172.* || $ip == 192.168.* ]]; then ip=$(curl -m 10 -s ifconfig.me); [[ -z $ip ]] && ip=$(hostname -I | awk '{print $1}'); fi; echo $ip)
 echo "$IP" | sudo tee /etc/pure-ftpd/conf/ForcePassiveIP > /dev/null

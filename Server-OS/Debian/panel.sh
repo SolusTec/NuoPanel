@@ -74,8 +74,6 @@ generate_mariadb_password() {
     DB_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 16)
     echo "$DB_PASSWORD"
 }
-
-
 install_pip() {
     echo "Updating system..."
     wait_for_apt_lock
@@ -106,11 +104,7 @@ if [ "$OS_NAME" = "debian" ] && [ "$OS_VERSION" -ge 11 ]; then
     echo "Python and pip setup completed!"
 }
 
-
-
 # Function to install MySQL/MariaDB development libraries
-
-
 # Function to install and configure MariaDB
 install_mariadb() {
     local MYSQL_ROOT_PASSWORD="$1"
@@ -152,8 +146,6 @@ EOF
     echo "MariaDB installation and root password configuration completed successfully."
 }
 
-
-
 change_mysql_root_password() {
     local NEW_PASSWORD="$1"
 
@@ -176,8 +168,6 @@ change_mysql_root_password() {
     echo "MariaDB root password changed successfully."
     return 0
 }
-
-
 create_database_and_user() {
     local ROOT_PASSWORD="$1"
     local DB_NAME="$2"
@@ -269,8 +259,6 @@ import_database() {
         return 1
     fi
 }
-
-
 install_mail_and_ftp_server() {
     # Configure Postfix to automatically choose 'Internet site' option during installation
     echo "postfix postfix/mailname string example.com" | sudo debconf-set-selections
@@ -342,8 +330,6 @@ install_powerdns_and_mysql_backend() {
 
     echo "PowerDNS installation and configuration completed successfully!"
 }
-
-
 copy_files_and_replace_password() {
     local SOURCE_DIR="$1"
     local TARGET_DIR="$2"
@@ -493,8 +479,6 @@ check_and_reboot() {
         echo "No reboot required."
     fi
 }
-
-
 install_openlitespeed() {
     local NEW_ADMIN_USERNAME="admin"   # Default admin username
     local NEW_ADMIN_PASSWORD="$1" # Default admin password
@@ -516,8 +500,6 @@ install_openlitespeed() {
         return 1
     fi
 }
-
-
 change_ols_password() {
     # Check if a custom password is provided as an argument
     if [ -z "$1" ]; then
@@ -669,8 +651,6 @@ install_acme_sh() {
 
    
 }
-
-
 unzip_and_move() {
 
     wget -O /root/item/panel_setup.zip "https://nuopanel.com/panel_setup.zip"
@@ -823,12 +803,8 @@ set_ownership_and_permissions() {
     sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data
     sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data
     sudo chmod -R 755 /usr/local/lsws/Example/html/webmail/data
-
-
     echo "Ownership and permissions set successfully for all specified directories."
 }
-
-
 add_backup_cronjobs() {
     local PYTHON_CMD=$(which python3)
     local BACKUP_SCRIPT="/usr/local/lsws/Example/html/nuopanel/manage.py"
@@ -850,8 +826,6 @@ add_backup_cronjobs() {
 
     echo "Cron jobs have been added successfully!"
 }
-
-
 remove_files_in_html_folder() {
     target_dir="/usr/local/lsws/Example/html"
     files_to_remove="index.html phpinfo.php upload.html upload.php"
@@ -963,8 +937,6 @@ install_all_lsphp_versions() {
 pkill lsphp
     echo "All requested PHP versions installed."
 }
-
-
 create_dovecot_cert() {
     CERT_PATH="/etc/dovecot/cert.pem"
     KEY_PATH="/etc/dovecot/key.pem"
@@ -1049,17 +1021,15 @@ fix_dovecot_log_permissions() {
 
     echo "Dovecot log permissions fixed successfully!"
 }
-
-
 display_success_message() {
 
-    GREEN='\033[38;5;83m'
+    RED='\033[38;5;83m'
     NC='\033[0m'	
     # Get the IP address
     IP=$(hostname -I | awk '{print $1}')
     
     # Get the port from the file
-    PORT=$(cat /root/item/port.txt)
+    PORT=8443
 	DB_PASSWORDx=$(get_password_from_file "/root/db_credentials_panel.txt")
     
     # Define the DB password (this can be dynamically set if needed)
@@ -1181,8 +1151,6 @@ replace_python_in_cron_and_service() {
         echo "Ubuntu version is lower than 24. No changes were made."
     fi
 }
-
-
 echo "Updating system packages..."
 sudo apt-get update -qq
 sudo apt-get upgrade -y -qq
