@@ -775,12 +775,6 @@ copy_mysql_password() {
     echo "Copying '$source_file' to '$target_file'..."
     cp "$source_file" "$target_file"
     if [ $? -ne 0 ]; then
-        echo "Failed to copy '$source_file' to '$target_file'. Exiting."
-        return 1
-    fi
-
-    echo "File copied successfully from '$source_file' to '$target_file'."
-}
 
 django_setup() {
     echo "============================================================"
@@ -819,6 +813,14 @@ django_setup() {
     sudo systemctl restart cp
 }
 
+        echo "Failed to copy '$source_file' to '$target_file'. Exiting."
+        return 1
+    fi
+	sudo systemctl restart cp
+
+    echo "File copied successfully from '$source_file' to '$target_file'."
+}
+
 set_ownership_and_permissions() {
     sudo chown -R www-data:www-data /usr/local/lsws/Example/html/phpmyadmin 
     sudo chmod -R 755 /usr/local/lsws/Example/html/phpmyadmin 
@@ -828,7 +830,7 @@ set_ownership_and_permissions() {
     sudo chown -R www-data:www-data /usr/local/lsws/Example/html/webmail
     sudo chmod -R 755 /usr/local/lsws/Example/html/webmail
     sudo groupadd nobody
-    sudo groupadd nuopanel
+    sudo groupadd olspanel
     sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data
     sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data
     sudo chmod -R 755 /usr/local/lsws/Example/html/webmail/data
@@ -850,8 +852,8 @@ add_backup_cronjobs() {
 0 0 1 * * $PYTHON_CMD $BACKUP_SCRIPT backup --month
 0 0 * * * $PYTHON_CMD /usr/local/lsws/Example/html/nuopanel/manage.py check_version
 0 */3 * * * $PYTHON_CMD /usr/local/lsws/Example/html/nuopanel/manage.py limit_check
-*/3 * * * * if ! find /home/*/* -maxdepth 2 \( -path "/home/vmail" -o -path "/home/nuopanel" -o -path "/home/*/logs" -o -path "/home/*/.trash" -o -path "/home/*/backup" \) -prune -o -type f -name '.htaccess' -newer /usr/local/lsws/cgid -exec false {} +; then /usr/local/lsws/bin/lswsctrl restart; fi
-* * * * * /usr/local/bin/nuopanel --fail2ban >/dev/null 2>&1
+*/3 * * * * if ! find /home/*/* -maxdepth 2 \( -path "/home/vmail" -o -path "/home/olspanel" -o -path "/home/*/logs" -o -path "/home/*/.trash" -o -path "/home/*/backup" \) -prune -o -type f -name '.htaccess' -newer /usr/local/lsws/cgid -exec false {} +; then /usr/local/lsws/bin/lswsctrl restart; fi
+* * * * * /usr/local/bin/olspanel --fail2ban >/dev/null 2>&1
 "
 
     # Add cron jobs for root user
@@ -942,7 +944,7 @@ install_all_lsphp_versions() {
         if [ -x "/usr/local/lsws/lsphp$version/bin/php" ]; then
             echo "PHP $version installed successfully!"
 
-            # Convert version to dotted format (e.g., 74 â†' 7.4)
+            # Convert version to dotted format (e.g., 74 → 7.4)
            php_version=$(echo "$version" | awk '{print substr($0,1,1) "." substr($0,2,1)}')
 
             # Define php.ini paths
@@ -1172,7 +1174,8 @@ replace_python_in_cron_and_service() {
         # Restart the service to apply the new Python path
         echo "Restarting the cp service..."
         systemctl restart cp.service
-        
+        # REMOVIDO - Agora é feito via django_setup() -         "$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
+	# REMOVIDO - Agora é feito via django_setup() - 	"$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
         echo "Successfully updated cron job and systemd service to use virtual environment Python."
    
 }
@@ -1253,9 +1256,8 @@ setup_cp_service_with_port
 set_ownership_and_permissions
 copy_vhconf_to_example
 copy_mysql_password
-
 # ============================================================
-# DJANGO SETUP - SEÇÃO CRÍTICA ADICIONADA
+# DJANGO SETUP - CHAMADA PRINCIPAL
 # ============================================================
 django_setup
 
