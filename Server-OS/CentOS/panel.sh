@@ -1356,6 +1356,10 @@ fi
 }
 
 sudo ${PACKAGE_MANAGER} install -y rsync
+echo "Updating system packages..."
+sudo dnf update -y -q
+echo ""
+
 disable_kernel_message
 # Directory to save the password
 PASSWORD_DIR="/root/item"

@@ -44,13 +44,30 @@ wait_for_apt_lock() {
         sleep 5
     done
 }
+
 disable_kernel_message() {
+    # Check if needrestart is installed
+    if ! dpkg -l | grep -q "^ii  needrestart"; then
+        echo "needrestart not found. Installing..."
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq needrestart
+        if [ $? -eq 0 ]; then
+            echo "needrestart installed successfully."
+        else
+            echo "Failed to install needrestart. Skipping configuration."
+            return 1
+        fi
+    fi
+    
+    # Configure needrestart
     sudo sed -i 's/^#\?\(\$nrconf{kernelhints} = \).*/\1 0;/' /etc/needrestart/needrestart.conf
     sudo sed -i 's/^#\?\(\$nrconf{restart} = \).*/\1"a";/' /etc/needrestart/needrestart.conf
-    sudo systemctl restart needrestart
+    
+    # Restart service (silently ignore if not a systemd service)
+    sudo systemctl restart needrestart 2>/dev/null || true
+    
     echo "Kernel upgrade message disabled."
 }
-
 # Function to generate a MariaDB-compatible random password
 generate_mariadb_password() {
     # Generate a random password with 16 characters
@@ -1159,6 +1176,12 @@ replace_python_in_cron_and_service() {
     fi
 }
 
+
+echo "Updating system packages..."
+sudo apt-get update -qq
+sudo apt-get upgrade -y -qq
+sudo apt-get dist-upgrade -y -qq
+echo ""
 
 disable_kernel_message
 # Directory to save the password
