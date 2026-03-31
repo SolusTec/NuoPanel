@@ -23,16 +23,16 @@ fi
 
 run_py() {
     # SEMPRE usar venv do root, independente do OS
-    local PYTHON_CMD="/root/venv/bin/python"
+    local PYTHON_CMD="/root/.venv/bin/python"
     
     # Se não existir, tentar python3
     if [ ! -x "$PYTHON_CMD" ]; then
-        PYTHON_CMD="/root/venv/bin/python3"
+        PYTHON_CMD="/root/.venv/bin/python3"
     fi
     
     # Se ainda não existir, tentar python3.12
     if [ ! -x "$PYTHON_CMD" ]; then
-        PYTHON_CMD="/root/venv/bin/python3.12"
+        PYTHON_CMD="/root/.venv/bin/python3.12"
     fi
 
     echo "Trying $PYTHON_CMD $PROJECT_DIR/manage.py install_olsapp"
@@ -44,9 +44,9 @@ run_py() {
 
         # Fallback Python interpreters to try if the first fails
         local FALLBACKS=(
-            "/root/venv/bin/python"
-            "/root/venv/bin/python3"
-            "/root/venv/bin/python3.12"
+            "/root/.venv/bin/python"
+            "/root/.venv/bin/python3"
+            "/root/.venv/bin/python3.12"
         )
 
         for alt_python in "${FALLBACKS[@]}"; do

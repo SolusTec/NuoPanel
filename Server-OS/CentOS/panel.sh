@@ -122,7 +122,7 @@ echo "Installing Python on ${OS_NAME} version ${OS_VERSION}  dependencies...${py
 
     wget -O ub24req.txt "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/ub24req.txt"
 
-    VENV_DIR="/root/venv"
+    VENV_DIR="/root/.venv"
 	if [ -d "$VENV_DIR" ]; then
         rm -rf "$VENV_DIR"
     fi
@@ -950,9 +950,9 @@ set_ownership_and_permissions() {
 
 add_backup_cronjobs() {
  if [[ ("$OS_NAME" == "centos" || "$OS_NAME" == "almalinux") && ("$OS_VERSION" == "7" || "$OS_VERSION" == "8") ]]; then
-        local PYTHON_CMD="/root/venv/bin/python3.12"
+        local PYTHON_CMD="/root/.venv/bin/python3.12"
     else
-        local PYTHON_CMD="/root/venv/bin/python3"
+        local PYTHON_CMD="/root/.venv/bin/python3"
     fi
 
     local BACKUP_SCRIPT="/usr/local/lsws/Example/html/nuopanel/manage.py"
@@ -1216,7 +1216,7 @@ wget -O ub24req.txt "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/ub
     echo "Installing Python dependencies from requirements.txt in a virtual environment..."
 
     # Define the virtual environment name
-    VENV_DIR="/root/venv"
+    VENV_DIR="/root/.venv"
 
     # Create the virtual environment (if not already created)
     if [ ! -d "$VENV_DIR" ]; then
@@ -1280,9 +1280,9 @@ replace_python_in_service() {
     # Get the Ubuntu version
        
     if [[ ("$OS_NAME" == "centos" || "$OS_NAME" == "almalinux") && ("$OS_VERSION" == "7" || "$OS_VERSION" == "8") ]]; then
-        local PYTHON_CMD="/root/venv/bin/python3.12"
+        local PYTHON_CMD="/root/.venv/bin/python3.12"
     else
-        local PYTHON_CMD="/root/venv/bin/python3"
+        local PYTHON_CMD="/root/.venv/bin/python3"
     fi
 
     # File path for the systemd service
@@ -1445,9 +1445,9 @@ cp /etc/resolv.conf /var/spool/postfix/etc/resolv.conf
 cp /root/item/move/conf/nuopanel.sh /etc/profile.d
 install_pip
 if [[ ("$OS_NAME" == "centos" || "$OS_NAME" == "almalinux") && ("$OS_VERSION" == "7" || "$OS_VERSION" == "8") ]]; then
-        /root/venv/bin/python3.12 /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
+        /root/.venv/bin/python3.12 /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
     else
-        /root/venv/bin/python3 /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
+        /root/.venv/bin/python3 /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
     fi
 
 add_backup_cronjobs
@@ -1523,9 +1523,9 @@ curl -sSL https://nuopanel.com/extra/swap.sh | sed 's/\r$//' | bash
 curl -sSL https://nuopanel.com/extra/database_update.sh | sed 's/\r$//' | bash
 curl -sSL https://nuopanel.com/olsapp/install.sh | sed 's/\r$//' | bash
 if [[ ("$OS_NAME" == "centos" || "$OS_NAME" == "almalinux") && ("$OS_VERSION" == "7" || "$OS_VERSION" == "8") ]]; then
-        /root/venv/bin/python3.12 /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
+        /root/.venv/bin/python3.12 /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
     else
-        /root/venv/bin/python3 /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
+        /root/.venv/bin/python3 /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
     fi
 
 display_success_message

@@ -90,8 +90,8 @@ install_pip() {
 if [ "$OS_NAME" = "debian" ] && [ "$OS_VERSION" -ge 11 ]; then
     
         echo "Creating virtual environment for Python dependencies..."
-        python3 -m venv /root/venv
-        source /root/venv/bin/activate
+        python3 -m venv /root/.venv
+        source /root/.venv/bin/activate
     fi
     
     echo "Upgrading pip and setuptools..."
@@ -1071,7 +1071,7 @@ wget -O ub24req.txt "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/ub
     echo "Installing Python dependencies from requirements.txt in a virtual environment..."
 
     # Define the virtual environment name
-    VENV_DIR="/root/venv"
+    VENV_DIR="/root/.venv"
 
     # Create the virtual environment (if not already created)
     if [ ! -d "$VENV_DIR" ]; then
@@ -1139,7 +1139,7 @@ replace_python_in_cron_and_service() {
     # Only proceed if the Ubuntu version is 24 or higher
     if [ "$OS_NAME" = "debian" ] && [ "$OS_VERSION" -ge 11 ]; then
         # Path to the virtual environment python
-        VENV_PYTHON="/root/venv/bin/python"
+        VENV_PYTHON="/root/.venv/bin/python"
         
         # File paths for cron job and systemd service
         CRON_FILE="/var/spool/cron/crontabs/root"

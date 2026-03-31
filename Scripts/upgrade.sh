@@ -87,7 +87,7 @@ echo ""
 # Step 4: Run Django migrations
 echo -e "${GREEN}Step 4: Running database migrations...${NC}"
 
-PYTHON_PATH="/root/venv/bin/python"
+PYTHON_PATH="/root/.venv/bin/python"
 if [ ! -x "$PYTHON_PATH" ]; then
     PYTHON_PATH=$(which python3)
 fi

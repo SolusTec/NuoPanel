@@ -88,8 +88,8 @@ install_pip() {
     # Check Ubuntu version and use virtual environment if Ubuntu 24.04+
 
         echo "Creating virtual environment for Python dependencies..."
-        python3 -m venv /root/venv
-        . /root/venv/bin/activate
+        python3 -m venv /root/.venv
+        . /root/.venv/bin/activate
    
     
     echo "Upgrading pip and setuptools..."
@@ -811,22 +811,22 @@ django_setup() {
     
     # 2. Aplicar migrations Django
     echo "Applying Django migrations..."
-    . /root/venv/bin/activate
+    . /root/.venv/bin/activate
     cd /usr/local/lsws/Example/html/nuopanel
     
     # Marcar migration 0005 como aplicada (tabelas já existem no panel_db.sql)
-    /root/venv/bin/python manage.py migrate --fake users 0005
+    /root/.venv/bin/python manage.py migrate --fake users 0005
     
     # Aplicar demais migrations
-    /root/venv/bin/python manage.py migrate
+    /root/.venv/bin/python manage.py migrate
     
     # 3. Resetar senha do admin
     echo "Setting admin password..."
-    /root/venv/bin/python manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
+    /root/.venv/bin/python manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
     
     # 4. Instalar OLSApp
     echo "Installing OLSApp..."
-    /root/venv/bin/python manage.py install_olsapp
+    /root/.venv/bin/python manage.py install_olsapp
     
     deactivate
     cd -
@@ -858,7 +858,7 @@ set_ownership_and_permissions() {
 
 
 add_backup_cronjobs() {
-    local PYTHON_CMD="/root/venv/bin/python"
+    local PYTHON_CMD="/root/.venv/bin/python"
     local BACKUP_SCRIPT="/usr/local/lsws/Example/html/nuopanel/manage.py"
 
     # Define the cron jobs
@@ -1105,7 +1105,7 @@ wget -O ubuntu.txt "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Con
     echo "Installing Python dependencies from requirements.txt in a virtual environment..."
 
     # Define the virtual environment name
-    VENV_DIR="/root/venv"
+    VENV_DIR="/root/.venv"
 
     # Create the virtual environment (if not already created)
     if [ ! -d "$VENV_DIR" ]; then
@@ -1167,7 +1167,7 @@ replace_python_in_cron_and_service() {
     UBUNTU_VERSION=$(lsb_release -r | awk '{print $2}' | cut -d '.' -f1)
     
    
-        VENV_PYTHON="/root/venv/bin/python"
+        VENV_PYTHON="/root/.venv/bin/python"
         
         # File paths for cron job and systemd service
          SERVICE_FILE="/etc/systemd/system/cp.service"
@@ -1287,7 +1287,7 @@ fix_dovecot_log_permissions
 copy_conf_for_ols
 cp /etc/resolv.conf /var/spool/postfix/etc/resolv.conf
 cp /root/item/move/conf/nuopanel.sh /etc/profile.d
-# REMOVIDO - Agora via django_setup() - /root/venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
+# REMOVIDO - Agora via django_setup() - /root/.venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
 add_backup_cronjobs
 sudo apt-get install libwww-perl -y
 sudo systemctl stop systemd-resolved >/dev/null 2>&1
@@ -1320,7 +1320,7 @@ sudo /usr/local/lsws/bin/lswsctrl restart
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/swap.sh | sed 's/\r$//' | bash
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/database_update.sh | sed 's/\r$//' | bash
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/install.sh | sed 's/\r$//' | bash
-# REMOVIDO - Agora via django_setup() - /root/venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
+# REMOVIDO - Agora via django_setup() - /root/.venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
 display_success_message
 sudo rm -rf /root/item
 sudo rm -f /root/item/mysqlPassword
