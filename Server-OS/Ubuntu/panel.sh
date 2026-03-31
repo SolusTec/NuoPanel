@@ -745,6 +745,8 @@ setup_cp_service_with_port() {
     echo "Reloading systemd daemon..."
     sudo systemctl daemon-reload
 
+    # Save port to file for backward compatibility
+    echo "8443" > /root/item/port.txt
     echo "✅ Service configured to use port 8443"
     echo "   - Django: http://127.0.0.1:8443"
     echo "   - Public access: https://your-server:8443"
