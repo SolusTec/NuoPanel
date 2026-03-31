@@ -833,13 +833,13 @@ unzip_and_move() {
     echo "Unzipping and moving completed successfully."
 }
 
-
 setup_cp_service_with_port() {
     local service_file="/root/item/move/conf/cp.service"
     local httpd_file="/root/item/move/conf/httpd_config.conf"
     local target_dir="/etc/systemd/system/"
     local target_file="${target_dir}cp.service"
     local port_file="/root/item/port.txt"
+    local public_port=8443
 
     # Ensure the service file exists
     if [ ! -f "$service_file" ]; then
@@ -848,15 +848,22 @@ setup_cp_service_with_port() {
     fi
 
     # Check if public port 8443 is available
-    if netstat -tuln 2>/dev/null | grep -q ":8443 " || ss -tuln 2>/dev/null | grep -q ":8443 "; then
-        echo "⚠️  Warning: Port 8443 is already in use!"
-        echo "Please free up port 8443 before continuing."
+    if netstat -tuln 2>/dev/null | grep -q ":${public_port} " || ss -tuln 2>/dev/null | grep -q ":${public_port} "; then
+        echo "⚠️  Warning: Port ${public_port} is already in use!"
+        echo "Please free up port ${public_port} before continuing."
         return 1
     fi
 
-    echo "Using port configuration:"
-    echo "  - Internal (Django): 8011"
-    echo "  - Public (HTTPS): 8443"
+    echo "Configuring NuoPanel with fixed port architecture:"
+    echo "  - Internal (Django): 127.0.0.1:8011"
+    echo "  - Public (HTTPS): *:${public_port}"
+
+    # Save public port to file
+    echo "${public_port}" > "$port_file"
+    if [ $? -ne 0 ]; then
+        echo "Failed to save port to '$port_file'. Exiting."
+        return 1
+    fi
 
     # Copy service file (already configured for port 8011)
     echo "Copying service file to '$target_dir'..."
@@ -874,17 +881,32 @@ setup_cp_service_with_port() {
         return 1
     fi
 
-    # Save public port to file for backward compatibility
-    echo "8443" > "$port_file"
-    
     # Reload systemd daemon
     echo "Reloading systemd daemon..."
     sudo systemctl daemon-reload
 
-    echo "✅ Service configured successfully!"
-    echo "   - Django internal: http://127.0.0.1:8011"
-    echo "   - Public access: https://your-server:8443"
+    # Start the service
+    echo "Starting 'cp' service..."
+    sudo systemctl start cp
+    if [ $? -ne 0 ]; then
+        echo "Failed to start 'cp' service. Exiting."
+        return 1
+    fi
+
+    # Enable the service to start on boot
+    echo "Enabling 'cp' service to start on boot..."
+    sudo systemctl enable cp
+    if [ $? -ne 0 ]; then
+        echo "Failed to enable 'cp' service. Exiting."
+        return 1
+    fi
+
+    # Allow public port in firewall
+    allow_ports ${public_port}
+
+    echo "✅ Port configuration completed successfully!"
 }
+
 copy_mysql_password() {
     local source_file="/root/item/mysqlPassword"
     local target_dir="/usr/local/lsws/Example/html/nuopanel/etc/"
