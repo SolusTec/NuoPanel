@@ -169,7 +169,7 @@ create_database_and_user() {
     # Generate a random password for the new user
     local DB_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 16)
     echo -n "${DB_PASSWORD}" > /root/db_credentials_panel.txt
-    chmod 600 /root/db_credentials_${DB_USER}.txt
+    chmod 600 /root/db_credentials_panel.txt
    
 
     echo "Creating database and user..."
@@ -402,12 +402,12 @@ copy_files_and_replace_password() {
     sudo chmod -R 700 /home/vmail
 
     # Set ownership to root and postfix
-   # sudo chown root:postfix /etc/letsencrypt/live/mail.example.com/privkey.pem
-   # sudo chown root:postfix /etc/letsencrypt/live/mail.example.com/fullchain.pem
+   # sudo chown root:postfix /etc/letsencrypt/live/mail.chandpurtelecom.xyz/privkey.pem
+   # sudo chown root:postfix /etc/letsencrypt/live/mail.chandpurtelecom.xyz/fullchain.pem
 
     # Set permissions
-   # sudo chmod 640 /etc/letsencrypt/live/mail.example.com/privkey.pem
-   # sudo chmod 644 /etc/letsencrypt/live/mail.example.com/fullchain.pem
+   # sudo chmod 640 /etc/letsencrypt/live/mail.chandpurtelecom.xyz/privkey.pem
+   # sudo chmod 644 /etc/letsencrypt/live/mail.chandpurtelecom.xyz/fullchain.pem
 }
 
 generate_pureftpd_ssl_certificate() {
@@ -534,7 +534,7 @@ change_ols_password() {
 copy_conf_for_ols() {
     # Define the source and target directories
     local SSL_SOURCE_DIR="/root/item/move/conf/ssl"
-    local SSL_TARGET_DIR="/etc/letsencrypt/live/example.com"
+    local SSL_TARGET_DIR="/etc/letsencrypt/live/chandpurtelecom.xyz"
     local HTTPD_CONFIG_SOURCE="/root/item/move/conf/httpd_config.conf"
     local HTTPD_CONFIG_TARGET="/usr/local/lsws/conf/httpd_config.conf"
     local SERVER_IP=$(curl -4 ifconfig.me)
@@ -567,12 +567,12 @@ copy_conf_for_ols() {
     echo "Copying httpd config file '$HTTPD_CONFIG_SOURCE' to '$HTTPD_CONFIG_TARGET'..."
     cp -v "$HTTPD_CONFIG_SOURCE" "$HTTPD_CONFIG_TARGET"
 	sudo systemctl restart openlitespeed
-        # sudo chown root:postfix /etc/letsencrypt/live/mail.example.com/privkey.pem
-        # sudo chown root:postfix /etc/letsencrypt/live/mail.example.com/fullchain.pem
+        # sudo chown root:postfix /etc/letsencrypt/live/mail.chandpurtelecom.xyz/privkey.pem
+        # sudo chown root:postfix /etc/letsencrypt/live/mail.chandpurtelecom.xyz/fullchain.pem
 
     # Set permissions
-      # sudo chmod 640 /etc/letsencrypt/live/mail.example.com/privkey.pem
-      # sudo chmod 644 /etc/letsencrypt/live/mail.example.com/fullchain.pem
+      # sudo chmod 640 /etc/letsencrypt/live/mail.chandpurtelecom.xyz/privkey.pem
+      # sudo chmod 644 /etc/letsencrypt/live/mail.chandpurtelecom.xyz/fullchain.pem
     echo "Copy operation completed."
 }
 
@@ -1284,7 +1284,7 @@ sudo touch /etc/opendkim/signing.table
 sudo touch /etc/opendkim/TrustedHosts.table
 echo -n "$OS_NAME" > /usr/local/lsws/Example/html/nuopanel/etc/osName
 echo -n "$OS_VERSION" > /usr/local/lsws/Example/html/nuopanel/etc/osVersion
-IP=$(ip=$(hostname -I | awk '{print $1}'); if [ $ip = 10.* || $ip = 172.* || $ip = 192.168.* ]; then ip=$(curl -4 -m 10 -s ifconfig.me); [ -z $ip ] && ip=$(hostname -I | awk '{print $1}'); fi; echo $ip)
+IP=$(ip=$(hostname -I | awk '{print $1}'); if [ "$ip" != "${ip#10.}" ] || [ "$ip" != "${ip#172.}" ] || [ "$ip" != "${ip#192.168.}" ]; then ip=$(curl -4 -m 10 -s ifconfig.me); [ -z "$ip" ] && ip=$(hostname -I | awk '{print $1}'); fi; echo $ip)
 echo "$IP" | sudo tee /etc/pure-ftpd/conf/ForcePassiveIP > /dev/null
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/re_config.sh | sed 's/\r$//' | bash
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/setup_missing_ssl_file.sh | sed 's/\r$//' | bash
