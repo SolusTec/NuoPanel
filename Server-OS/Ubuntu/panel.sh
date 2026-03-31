@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 UBUNTU_VERSION=$(lsb_release -sr | cut -d. -f1)
 
@@ -72,7 +72,7 @@ install_pip() {
 
         echo "Creating virtual environment for Python dependencies..."
         python3 -m venv /root/venv
-        source /root/venv/bin/activate
+        . /root/venv/bin/activate
    
     
     echo "Upgrading pip and setuptools..."
@@ -787,7 +787,7 @@ django_setup() {
     
     # 2. Aplicar migrations Django
     echo "Applying Django migrations..."
-    source /root/venv/bin/activate
+    . /root/venv/bin/activate
     cd /usr/local/lsws/Example/html/nuopanel
     
     # Marcar migration 0005 como aplicada (tabelas já existem no panel_db.sql)
@@ -830,7 +830,7 @@ set_ownership_and_permissions() {
     sudo chown -R www-data:www-data /usr/local/lsws/Example/html/webmail
     sudo chmod -R 755 /usr/local/lsws/Example/html/webmail
     sudo groupadd nobody
-    sudo groupadd olspanel
+    sudo groupadd nuopanel
     sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data
     sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data
     sudo chmod -R 755 /usr/local/lsws/Example/html/webmail/data
@@ -852,8 +852,8 @@ add_backup_cronjobs() {
 0 0 1 * * $PYTHON_CMD $BACKUP_SCRIPT backup --month
 0 0 * * * $PYTHON_CMD /usr/local/lsws/Example/html/nuopanel/manage.py check_version
 0 */3 * * * $PYTHON_CMD /usr/local/lsws/Example/html/nuopanel/manage.py limit_check
-*/3 * * * * if ! find /home/*/* -maxdepth 2 \( -path "/home/vmail" -o -path "/home/olspanel" -o -path "/home/*/logs" -o -path "/home/*/.trash" -o -path "/home/*/backup" \) -prune -o -type f -name '.htaccess' -newer /usr/local/lsws/cgid -exec false {} +; then /usr/local/lsws/bin/lswsctrl restart; fi
-* * * * * /usr/local/bin/olspanel --fail2ban >/dev/null 2>&1
+*/3 * * * * if ! find /home/*/* -maxdepth 2 \( -path "/home/vmail" -o -path "/home/nuopanel" -o -path "/home/*/logs" -o -path "/home/*/.trash" -o -path "/home/*/backup" \) -prune -o -type f -name '.htaccess' -newer /usr/local/lsws/cgid -exec false {} +; then /usr/local/lsws/bin/lswsctrl restart; fi
+* * * * * /usr/local/bin/nuopanel --fail2ban >/dev/null 2>&1
 "
 
     # Add cron jobs for root user
