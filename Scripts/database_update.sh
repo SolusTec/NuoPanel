@@ -1,11 +1,11 @@
 #!/bin/bash
-HOME_PATH_FILE="/etc/nuopanel/base_dir"
+HOME_PATH_FILE="/etc/olspanel/base_dir"
 if [ -f "$HOME_PATH_FILE" ]; then
     # Read value from file
     PROJECT_DIR="$(cat "$HOME_PATH_FILE")"
 else
     # Extract from systemd service
-    PROJECT_DIR="/usr/local/lsws/Example/html/nuopanel"
+    PROJECT_DIR="/usr/local/lsws/Example/html/mypanel"
 fi
 
 # Path to the file containing MySQL root password

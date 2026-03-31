@@ -1,7 +1,7 @@
 #!/bin/bash
 # Generate self-signed SSL certificate for OpenLiteSpeed if not exists
 
-DOMAIN="example.com"
+DOMAIN="chandpurtelecom.xyz"
 SSL_DIR="/etc/letsencrypt/live/$DOMAIN"
 
 # Ensure target directory exists

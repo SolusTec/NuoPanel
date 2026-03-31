@@ -38,23 +38,6 @@ install_sudo() {
 }
 
 install_sudo
-
-# Create NuoPanel system directories and user/group
-echo "Setting up NuoPanel system structure..."
-sudo mkdir -p /etc/nuopanel
-sudo chmod 755 /etc/nuopanel
-
-# Create nuopanel group and user
-if ! getent group nuopanel > /dev/null 2>&1; then
-    sudo groupadd -g 5001 nuopanel
-    echo "✓ Created group 'nuopanel'"
-fi
-
-if ! id -u nuopanel > /dev/null 2>&1; then
-    sudo useradd -r -u 5001 -g nuopanel -d /usr/local/nuopanel -s /sbin/nologin -c "NuoPanel System User" nuopanel
-    echo "✓ Created user 'nuopanel'"
-fi
-
 # Function to wait for the apt lock to be released
 wait_for_apt_lock() {
     while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
@@ -186,9 +169,8 @@ create_database_and_user() {
     # Generate a random password for the new user
     local DB_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 16)
     echo -n "${DB_PASSWORD}" > /root/db_credentials_panel.txt
-    chmod 600 /root/db_credentials_panel.txt
-    
-    echo "Password for user '${DB_USER}' saved to /root/db_credentials_panel.txt"
+    chmod 600 /root/db_credentials_${DB_USER}.txt
+   
 
     echo "Creating database and user..."
 
@@ -420,12 +402,12 @@ copy_files_and_replace_password() {
     sudo chmod -R 700 /home/vmail
 
     # Set ownership to root and postfix
-   # sudo chown root:postfix /etc/letsencrypt/live/mail.example.com/privkey.pem
-   # sudo chown root:postfix /etc/letsencrypt/live/mail.example.com/fullchain.pem
+   # sudo chown root:postfix /etc/letsencrypt/live/mail.chandpurtelecom.xyz/privkey.pem
+   # sudo chown root:postfix /etc/letsencrypt/live/mail.chandpurtelecom.xyz/fullchain.pem
 
     # Set permissions
-   # sudo chmod 640 /etc/letsencrypt/live/mail.example.com/privkey.pem
-   # sudo chmod 644 /etc/letsencrypt/live/mail.example.com/fullchain.pem
+   # sudo chmod 640 /etc/letsencrypt/live/mail.chandpurtelecom.xyz/privkey.pem
+   # sudo chmod 644 /etc/letsencrypt/live/mail.chandpurtelecom.xyz/fullchain.pem
 }
 
 generate_pureftpd_ssl_certificate() {
@@ -552,7 +534,7 @@ change_ols_password() {
 copy_conf_for_ols() {
     # Define the source and target directories
     local SSL_SOURCE_DIR="/root/item/move/conf/ssl"
-    local SSL_TARGET_DIR="/etc/letsencrypt/live/example.com"
+    local SSL_TARGET_DIR="/etc/letsencrypt/live/chandpurtelecom.xyz"
     local HTTPD_CONFIG_SOURCE="/root/item/move/conf/httpd_config.conf"
     local HTTPD_CONFIG_TARGET="/usr/local/lsws/conf/httpd_config.conf"
     local SERVER_IP=$(curl -4 ifconfig.me)
@@ -585,12 +567,12 @@ copy_conf_for_ols() {
     echo "Copying httpd config file '$HTTPD_CONFIG_SOURCE' to '$HTTPD_CONFIG_TARGET'..."
     cp -v "$HTTPD_CONFIG_SOURCE" "$HTTPD_CONFIG_TARGET"
 	sudo systemctl restart openlitespeed
-        # sudo chown root:postfix /etc/letsencrypt/live/mail.example.com/privkey.pem
-        # sudo chown root:postfix /etc/letsencrypt/live/mail.example.com/fullchain.pem
+        # sudo chown root:postfix /etc/letsencrypt/live/mail.chandpurtelecom.xyz/privkey.pem
+        # sudo chown root:postfix /etc/letsencrypt/live/mail.chandpurtelecom.xyz/fullchain.pem
 
     # Set permissions
-      # sudo chmod 640 /etc/letsencrypt/live/mail.example.com/privkey.pem
-      # sudo chmod 644 /etc/letsencrypt/live/mail.example.com/fullchain.pem
+      # sudo chmod 640 /etc/letsencrypt/live/mail.chandpurtelecom.xyz/privkey.pem
+      # sudo chmod 644 /etc/letsencrypt/live/mail.chandpurtelecom.xyz/fullchain.pem
     echo "Copy operation completed."
 }
 
@@ -770,7 +752,7 @@ setup_cp_service_with_port() {
 
 copy_mysql_password() {
     local source_file="/root/item/mysqlPassword"
-    local target_dir="/usr/local/lsws/Example/html/nuopanel/etc/"
+    local target_dir="/usr/local/lsws/Example/html/mypanel/etc/"
     local target_file="${target_dir}mysqlPassword"
 
     # Ensure the source file exists
@@ -805,12 +787,12 @@ set_ownership_and_permissions() {
     sudo chown -R www-data:www-data /usr/local/lsws/Example/html/phpmyadmin 
     sudo chmod -R 755 /usr/local/lsws/Example/html/phpmyadmin 
 
-    sudo chown -R www-data:www-data /usr/local/lsws/Example/html/nuopanel
-    sudo chmod -R 755 /usr/local/lsws/Example/html/nuopanel
+    sudo chown -R www-data:www-data /usr/local/lsws/Example/html/mypanel
+    sudo chmod -R 755 /usr/local/lsws/Example/html/mypanel
     sudo chown -R www-data:www-data /usr/local/lsws/Example/html/webmail
     sudo chmod -R 755 /usr/local/lsws/Example/html/webmail
     sudo groupadd nobody
-    sudo groupadd nuopanel
+    sudo groupadd olspanel
     sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data
     sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data
     sudo chmod -R 755 /usr/local/lsws/Example/html/webmail/data
@@ -822,7 +804,7 @@ set_ownership_and_permissions() {
 
 add_backup_cronjobs() {
     local PYTHON_CMD="/root/venv/bin/python"
-    local BACKUP_SCRIPT="/usr/local/lsws/Example/html/nuopanel/manage.py"
+    local BACKUP_SCRIPT="/usr/local/lsws/Example/html/mypanel/manage.py"
 
     # Define the cron jobs
     local CRON_JOBS="\
@@ -830,10 +812,10 @@ add_backup_cronjobs() {
 0 0 * * * $PYTHON_CMD $BACKUP_SCRIPT backup --day
 0 0 * * 0 $PYTHON_CMD $BACKUP_SCRIPT backup --week
 0 0 1 * * $PYTHON_CMD $BACKUP_SCRIPT backup --month
-0 0 * * * $PYTHON_CMD /usr/local/lsws/Example/html/nuopanel/manage.py check_version
-0 */3 * * * $PYTHON_CMD /usr/local/lsws/Example/html/nuopanel/manage.py limit_check
-*/3 * * * * if ! find /home/*/* -maxdepth 2 \( -path "/home/vmail" -o -path "/home/nuopanel" -o -path "/home/*/logs" -o -path "/home/*/.trash" -o -path "/home/*/backup" \) -prune -o -type f -name '.htaccess' -newer /usr/local/lsws/cgid -exec false {} +; then /usr/local/lsws/bin/lswsctrl restart; fi
-* * * * * /usr/local/bin/nuopanel --fail2ban >/dev/null 2>&1
+0 0 * * * $PYTHON_CMD /usr/local/lsws/Example/html/mypanel/manage.py check_version
+0 */3 * * * $PYTHON_CMD /usr/local/lsws/Example/html/mypanel/manage.py limit_check
+*/3 * * * * if ! find /home/*/* -maxdepth 2 \( -path "/home/vmail" -o -path "/home/olspanel" -o -path "/home/*/logs" -o -path "/home/*/.trash" -o -path "/home/*/backup" \) -prune -o -type f -name '.htaccess' -newer /usr/local/lsws/cgid -exec false {} +; then /usr/local/lsws/bin/lswsctrl restart; fi
+* * * * * /usr/local/bin/olspanel --fail2ban >/dev/null 2>&1
 "
 
     # Add cron jobs for root user
@@ -899,8 +881,8 @@ copy_vhconf_to_example() {
         echo "Failed to copy the file. Exiting."
         return 1
     fi
-   mkdir -p /usr/local/lsws/conf/vhosts/nuopanel 
-   cp /root/item/move/conf/nuopanel/vhconf.conf /usr/local/lsws/conf/vhosts/nuopanel/vhconf.conf
+   mkdir -p /usr/local/lsws/conf/vhosts/mypanel 
+   cp /root/item/move/conf/mypanel/vhconf.conf /usr/local/lsws/conf/vhosts/mypanel/vhconf.conf
     echo "File copied successfully to '$target_file'."
 }
 
@@ -919,11 +901,7 @@ install_all_lsphp_versions() {
         echo "Installing PHP $version..."
         sudo apt-get install -y lsphp"$version" lsphp"$version"-common lsphp"$version"-mysql
         sudo apt-get install -y lsphp"$version"-curl
-        
-        # JSON package only needed for PHP < 8.3
-        if [ "$version" != "83" ] && [ "$version" != "84" ] && [ "$version" != "85" ]; then
-            sudo apt-get install -y lsphp"$version"-json
-        fi
+	sudo apt-get install -y lsphp"$version"-json
         # Check if installation was successful
         if [ -x "/usr/local/lsws/lsphp$version/bin/php" ]; then
             echo "PHP $version installed successfully!"
@@ -1051,7 +1029,6 @@ fix_dovecot_log_permissions() {
 display_success_message() {
 
     GREEN='\033[38;5;83m'
-    CYAN='\033[38;5;51m'
     NC='\033[0m'	
     # Get the IP address
     IP=$(hostname -I | awk '{print $1}')
@@ -1060,26 +1037,14 @@ display_success_message() {
     PORT=$(cat /root/item/port.txt)
 	DB_PASSWORDx=$(get_password_from_file "/root/db_credentials_panel.txt")
     
-    # Print success message
-    echo ""
-    echo "${GREEN}=========================================="
-    echo "  ✅ NUOPANEL INSTALLATION COMPLETE!"
-    echo "==========================================${NC}"
-    echo ""
-    echo "${CYAN}Admin URL:${NC} https://${IP}:${PORT}"
-    echo "${CYAN}Username:${NC}  admin"
-    echo "${CYAN}Password:${NC}  ${DB_PASSWORDx}"
-    echo ""
-    echo "${GREEN}Next steps:${NC}"
-    echo "  1. Access the admin URL above"
-    echo "  2. Login with the credentials"
-    echo "  3. Change your password after first login"
-    echo ""
-    echo "${GREEN}CLI Tool:${NC} /usr/local/bin/nuopanel"
-    echo "${GREEN}Logs:${NC}     /var/log/"
-    echo ""
-    echo "Thank you for choosing NuoPanel!"
-    echo ""
+    # Define the DB password (this can be dynamically set if needed)
+   
+    
+    # Print success message in green
+    echo "${GREEN}You have successfully installed the webhost panel!"
+    echo "Admin URL is: https://${IP}:${PORT}"
+    echo "Username: admin"
+    echo "Password: ${DB_PASSWORDx}${NC}"
 }
 
 install_python_dependencies_in_venv() {
@@ -1171,24 +1136,14 @@ replace_python_in_cron_and_service() {
         # Restart the service to apply the new Python path
         echo "Restarting the cp service..."
         systemctl restart cp.service
-        "$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
-	"$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
+        "$VENV_PYTHON" /usr/local/lsws/Example/html/mypanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
+	"$VENV_PYTHON" /usr/local/lsws/Example/html/mypanel/manage.py install_olsapp
         echo "Successfully updated cron job and systemd service to use virtual environment Python."
    
 }
 
 
 disable_kernel_message
-
-echo ""
-echo "=========================================="
-echo "    NUOPANEL INSTALLATION STARTING"
-echo "=========================================="
-echo "OS: $OS_NAME $OS_VERSION"
-echo "Date: $(date)"
-echo "=========================================="
-echo ""
-
 # Directory to save the password
 PASSWORD_DIR="/root/item"
 PASSWORD_FILE="$PASSWORD_DIR/mysqlPassword"
@@ -1207,6 +1162,7 @@ fi
 # Generate a MariaDB-compatible random password
 PASSWORD=$(generate_mariadb_password)  # Change 16 to your desired password length
 echo "Generated MariaDB-Compatible Password: $PASSWORD"
+DB_PASSWORD=$(get_password_from_file "/root/db_credentials_panel.txt")
 # Save the password to the file
 echo -n "$PASSWORD" > "$PASSWORD_FILE"
 if [ $? -eq 0 ]; then
@@ -1241,15 +1197,6 @@ change_mysql_root_password "$PASSWORD"
 create_database_and_user "$PASSWORD" "panel" "panel"
 import_database "$PASSWORD" "panel" "/root/item/panel_db.sql"
 
-# Validate that password file was created successfully
-if [ ! -f "/root/db_credentials_panel.txt" ]; then
-    echo "❌ CRITICAL ERROR: Password file /root/db_credentials_panel.txt was not created!"
-    echo "Installation cannot continue. Exiting."
-    exit 1
-fi
-
-echo "✓ Database and credentials configured successfully"
-
 install_openlitespeed "$(get_password_from_file "/root/db_credentials_panel.txt")" 
 change_ols_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
 install_python_dependencies
@@ -1277,19 +1224,9 @@ create_vmail_user
 fix_dovecot_log_permissions
 copy_conf_for_ols
 cp /etc/resolv.conf /var/spool/postfix/etc/resolv.conf
-cp /root/item/move/conf/nuopanel.sh /etc/profile.d
-/root/venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
+cp /root/item/move/conf/olspanel.sh /etc/profile.d
+/root/venv/bin/python /usr/local/lsws/Example/html/mypanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
 add_backup_cronjobs
-
-# Run Django migrations to create all database tables
-echo "Running Django migrations to create database schema..."
-/root/venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py migrate --fake users 0005 --noinput
-if [ $? -eq 0 ]; then
-    echo "✓ Database migrations completed successfully"
-else
-    echo "⚠ Warning: Database migrations failed, but continuing installation..."
-fi
-
 sudo apt-get install libwww-perl -y
 sudo systemctl stop systemd-resolved >/dev/null 2>&1
 sudo systemctl disable systemd-resolved >/dev/null 2>&1
@@ -1303,13 +1240,8 @@ mkdir -p /etc/opendkim
 sudo touch /etc/opendkim/key.table
 sudo touch /etc/opendkim/signing.table
 sudo touch /etc/opendkim/TrustedHosts.table
-
-# Create etc/ directory for panel metadata
-mkdir -p /usr/local/lsws/Example/html/nuopanel/etc
-
-echo -n "$OS_NAME" > /usr/local/lsws/Example/html/nuopanel/etc/osName
-echo -n "$OS_VERSION" > /usr/local/lsws/Example/html/nuopanel/etc/osVersion
-touch /usr/local/lsws/Example/html/nuopanel/etc/time.zone
+echo -n "$OS_NAME" > /usr/local/lsws/Example/html/mypanel/etc/osName
+echo -n "$OS_VERSION" > /usr/local/lsws/Example/html/mypanel/etc/osVersion
 IP=$(ip=$(hostname -I | awk '{print $1}'); if [[ $ip == 10.* || $ip == 172.* || $ip == 192.168.* ]]; then ip=$(curl -4 -m 10 -s ifconfig.me); [[ -z $ip ]] && ip=$(hostname -I | awk '{print $1}'); fi; echo $ip)
 echo "$IP" | sudo tee /etc/pure-ftpd/conf/ForcePassiveIP > /dev/null
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/re_config.sh | sed 's/\r$//' | bash
@@ -1324,11 +1256,9 @@ sudo systemctl restart cp
 replace_python_in_cron_and_service
 sudo /usr/local/lsws/bin/lswsctrl restart
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/swap.sh | sed 's/\r$//' | bash
-# NOTE: database_update.sh disabled - requires mysqlPassword file that isn't created during install
-# This script should be run manually after first login or via a post-install cron job
-# curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/database_update.sh | sed 's/\r$//' | bash
+curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/database_update.sh | sed 's/\r$//' | bash
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/install.sh | sed 's/\r$//' | bash
-/root/venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
+/root/venv/bin/python /usr/local/lsws/Example/html/mypanel/manage.py install_olsapp
 display_success_message
 sudo rm -rf /root/item
 sudo rm -f /root/item/mysqlPassword
