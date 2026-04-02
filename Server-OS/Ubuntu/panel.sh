@@ -325,6 +325,71 @@ install_powerdns_and_mysql_backend() {
     fi
 
     echo "PowerDNS installation and configuration completed successfully!"
+
+install_rspamd_and_redis() {
+    echo "Installing Rspamd and Redis..."
+    
+    # 1. Adicionar repositório oficial do Rspamd
+    apt install -y lsb-release wget gpg
+    CODENAME=$(lsb_release -c -s)
+    wget -O- https://rspamd.com/apt-stable/gpg.key | gpg --dearmor > /usr/share/keyrings/rspamd.gpg
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/rspamd.gpg] http://rspamd.com/apt-stable/ $CODENAME main" > /etc/apt/sources.list.d/rspamd.list
+    
+    # 2. Atualizar lista de pacotes
+    apt update
+    
+    # 3. Instalar Rspamd e Redis
+    apt install -y rspamd redis-server
+    
+    # 4. Verificar instalação
+    if [ $? -ne 0 ]; then
+        echo "Failed to install Rspamd or Redis. Exiting."
+        exit 1
+    fi
+    
+    # 5. Habilitar serviços
+    systemctl enable rspamd
+    systemctl enable redis-server
+    
+    echo "Rspamd and Redis installed successfully."
+}
+
+configure_rspamd_password() {
+    echo "Configuring Rspamd password..."
+    
+    # 1. Definir senha padrão
+    PASSWORD="nuopanel2026"
+    
+    # 2. Gerar hash usando rspamadm
+    HASH=$(rspamadm pw --encrypt -p "$PASSWORD")
+    
+    if [ $? -ne 0 ]; then
+        echo "Failed to generate Rspamd password hash. Exiting."
+        exit 1
+    fi
+    
+    # 3. Substituir placeholder no arquivo de configuração
+    sed -i "s/%rspamd_password_hash%/$HASH/g" /etc/rspamd/local.d/worker-controller.inc
+    
+    # 4. Definir permissões corretas
+    chmod 644 /etc/rspamd/*.map
+    chmod 644 /etc/rspamd/local.d/*.conf
+    chmod 644 /etc/rspamd/local.d/*.inc
+    
+    # 5. Testar configuração
+    rspamadm configtest
+    
+    if [ $? -ne 0 ]; then
+        echo "Rspamd configuration test failed."
+        exit 1
+    fi
+    
+    # 6. Iniciar/reiniciar Rspamd
+    systemctl restart rspamd
+    systemctl restart redis-server
+    
+    echo "Rspamd configured. WebUI Password: $PASSWORD"
+}
 }
 copy_files_and_replace_password() {
     local SOURCE_DIR="$1"
@@ -1231,8 +1296,10 @@ install_python_dependencies
 
 install_mail_and_ftp_server
 install_powerdns_and_mysql_backend
+install_rspamd_and_redis
 copy_files_and_replace_password "/root/item/move/etc" "/etc" "$(get_password_from_file "/root/db_credentials_panel.txt")"
 generate_pureftpd_ssl_certificate
+configure_rspamd_password
 allow_ports 22 25 53 80 110 143 443 465 587 993 995 7080 3306 5353 6379 21 223 155 220 2205
 copy_files_and_replace_password "/root/item/move/html" "/usr/local/lsws/Example/html" "$(get_password_from_file "/root/db_credentials_panel.txt")"
 
