@@ -1,5 +1,5 @@
 #!/bin/bash
-# NuoPanel Simple Upgrade Script v1.2 with safe migrations + self remove
+# NuoPanel Simple Upgrade Script v1.3
 
 set -e
 
@@ -20,17 +20,17 @@ cleanup_self() {
 }
 
 echo -e "${GREEN}=========================================="
-echo "NuoPanel Upgrade Script v1.2"
+echo "NuoPanel Upgrade Script v1.3"
 echo "==========================================${NC}"
 
-# check rsync
+# ensure rsync exists
 if ! command -v rsync >/dev/null 2>&1; then
     echo -e "${YELLOW}Installing rsync...${NC}"
     apt-get update -y >/dev/null 2>&1
     apt-get install -y rsync >/dev/null 2>&1
 fi
 
-# Detect project directory
+# detect project dir
 if [ -f "/etc/nuopanel/base_dir" ]; then
     PROJECT_DIR="$(cat /etc/nuopanel/base_dir)"
 else
@@ -51,60 +51,55 @@ rollback() {
         tar -xzf "$BACKUP_FILE" -C /
         echo -e "${GREEN}Rollback completed${NC}"
     else
-        echo -e "${RED}Backup not found, rollback failed${NC}"
+        echo -e "${RED}Backup not found${NC}"
     fi
 
     cleanup_self
-
     exit 1
 }
 
 trap rollback ERR
 
 echo -e "${YELLOW}Project: $PROJECT_DIR${NC}"
-echo ""
 
-# Step 1: Backup
-echo -e "${GREEN}[1/6] Creating backup...${NC}"
+# backup
+echo -e "${GREEN}[1/6] Backup${NC}"
 
 mkdir -p "$BACKUP_DIR"
 
 tar -czf "$BACKUP_FILE" \
-    "$PROJECT_DIR" \
-    /usr/local/lsws/Example/html/phpmyadmin \
-    2>/dev/null
+"$PROJECT_DIR" \
+/usr/local/lsws/Example/html/phpmyadmin \
+2>/dev/null
 
-echo "OK Backup created"
-echo ""
+echo "OK backup"
 
-# Step 2: Download update
-echo -e "${GREEN}[2/6] Downloading update...${NC}"
+# download
+echo -e "${GREEN}[2/6] Download update${NC}"
 
 UPDATE_URL="https://github.com/SolusTec/NuoPanel/raw/main/Assets/panel_update.zip"
 
 wget -q -O /tmp/panel_update.zip "$UPDATE_URL?t=$(date +%s)"
 
 if [ ! -f /tmp/panel_update.zip ]; then
-    echo -e "${RED}Download failed${NC}"
+    echo "download failed"
     exit 1
 fi
 
-echo "OK Downloaded"
-echo ""
+echo "OK download"
 
-# Step 3: Extract
-echo -e "${GREEN}[3/6] Extracting update...${NC}"
+# extract
+echo -e "${GREEN}[3/6] Extract${NC}"
 
 rm -rf "$TEMP_DIR"
 mkdir -p "$TEMP_DIR"
 
 unzip -q /tmp/panel_update.zip -d "$TEMP_DIR"
 
-echo "OK Extracted"
-echo ""
+echo "OK extract"
 
-# Step 4: Apply update
-echo -e "${GREEN}[4/6] Applying update...${NC}"
+# rsync update
+echo -e "${GREEN}[4/6] Apply files${NC}"
 
 rsync -a \
 --exclude='usr/local/lsws/Example/html/nuopanel/etc/mysqlPassword' \
@@ -120,11 +115,15 @@ rsync -a \
 --exclude='usr/local/lsws/Example/html/nuopanel/3rdparty/rainloop/data/**' \
 "$TEMP_DIR/" /
 
-echo "OK Files updated"
-echo ""
+echo "OK rsync"
 
-# Step 5: Database migrations
-echo -e "${GREEN}[5/6] Running migrations...${NC}"
+# remove internal updater trigger
+rm -f "$PROJECT_DIR/etc/update"
+rm -f "$PROJECT_DIR/etc/update.zip"
+rm -f "$PROJECT_DIR/etc/update.tar.gz"
+
+# migrate
+echo -e "${GREEN}[5/6] Django migrate${NC}"
 
 PYTHON_PATH="/root/.venv/bin/python"
 
@@ -136,63 +135,50 @@ cd "$PROJECT_DIR"
 
 set +e
 
-MIGRATE_OUTPUT=$($PYTHON_PATH manage.py migrate 2>&1)
-MIGRATE_EXIT=$?
+OUTPUT=$($PYTHON_PATH manage.py migrate 2>&1)
+STATUS=$?
 
 set -e
 
-echo "$MIGRATE_OUTPUT"
+echo "$OUTPUT"
 
-if [ $MIGRATE_EXIT -eq 0 ]; then
+if [ $STATUS -ne 0 ]; then
 
-    echo "OK Migrations completed"
+    if echo "$OUTPUT" | grep -qi "already exists"; then
 
-else
-
-    if echo "$MIGRATE_OUTPUT" | grep -qi "already exists"; then
-
-        echo -e "${YELLOW}Detected existing tables, retrying with --fake-initial${NC}"
+        echo "retry fake-initial"
 
         $PYTHON_PATH manage.py migrate --fake-initial
 
-        echo "OK Fake-initial applied"
-
     else
 
-        echo -e "${RED}Migration failed${NC}"
         exit 1
 
     fi
 
 fi
 
-echo ""
+echo "OK migrate"
 
-# Step 6: Restart services
-echo -e "${GREEN}[6/6] Restarting services...${NC}"
+# restart
+echo -e "${GREEN}[6/6] Restart services${NC}"
 
 systemctl restart cp 2>/dev/null || true
 sleep 2
+/usr/local/lsws/bin/lswsctrl restart
 
-/usr/local/lsws/bin/lswsctrl restart 2>/dev/null || true
+echo "OK restart"
 
-echo "OK Services restarted"
-echo ""
-
-# cleanup temp files
+# cleanup
 rm -rf "$TEMP_DIR"
 rm -f /tmp/panel_update.zip
 
-NEW_VERSION=$(cat "$PROJECT_DIR/etc/version" 2>/dev/null || echo "unknown")
+VERSION=$(cat "$PROJECT_DIR/etc/version" 2>/dev/null || echo unknown)
 
 echo ""
-echo -e "${GREEN}=========================================="
-echo "Update Completed Successfully"
-echo "==========================================${NC}"
-
-echo -e "Version: ${GREEN}$NEW_VERSION${NC}"
-echo -e "Backup: ${YELLOW}$BACKUP_FILE${NC}"
-echo ""
+echo "Update finished"
+echo "Version: $VERSION"
+echo "Backup: $BACKUP_FILE"
 
 cleanup_self
 
