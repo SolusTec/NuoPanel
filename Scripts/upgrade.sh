@@ -9,7 +9,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo -e "${GREEN}=========================================="
-echo "NuoPanel Upgrade Script v3.4"
+echo "NuoPanel Upgrade Script v1.1"
 echo "==========================================${NC}"
 
 # check rsync
@@ -67,7 +67,7 @@ echo ""
 # Step 2: Download update
 echo -e "${GREEN}[2/6] Downloading update...${NC}"
 
-UPDATE_URL="https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Assets/panel_update.zip"
+UPDATE_URL="https://github.com/SolusTec/NuoPanel/raw/main/Assets/panel_update.zip"
 
 wget -q -O /tmp/panel_update.zip "$UPDATE_URL?t=$(date +%s)"
 
