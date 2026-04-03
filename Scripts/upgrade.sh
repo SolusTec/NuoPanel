@@ -1,5 +1,5 @@
 #!/bin/bash
-# NuoPanel Simple Upgrade Script v1.1 with safe migrations
+# NuoPanel Simple Upgrade Script v1.2 with safe migrations + self remove
 
 set -e
 
@@ -8,8 +8,19 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+SELF_REMOVE_PATH="/usr/local/lsws/Example/html/upgrade.sh"
+
+cleanup_self() {
+
+    if [ -f "$SELF_REMOVE_PATH" ]; then
+        rm -f "$SELF_REMOVE_PATH"
+        echo "Self removed: $SELF_REMOVE_PATH"
+    fi
+
+}
+
 echo -e "${GREEN}=========================================="
-echo "NuoPanel Upgrade Script v1.1"
+echo "NuoPanel Upgrade Script v1.2"
 echo "==========================================${NC}"
 
 # check rsync
@@ -43,6 +54,8 @@ rollback() {
         echo -e "${RED}Backup not found, rollback failed${NC}"
     fi
 
+    cleanup_self
+
     exit 1
 }
 
@@ -70,6 +83,11 @@ echo -e "${GREEN}[2/6] Downloading update...${NC}"
 UPDATE_URL="https://github.com/SolusTec/NuoPanel/raw/main/Assets/panel_update.zip"
 
 wget -q -O /tmp/panel_update.zip "$UPDATE_URL?t=$(date +%s)"
+
+if [ ! -f /tmp/panel_update.zip ]; then
+    echo -e "${RED}Download failed${NC}"
+    exit 1
+fi
 
 echo "OK Downloaded"
 echo ""
@@ -161,7 +179,7 @@ sleep 2
 echo "OK Services restarted"
 echo ""
 
-# cleanup
+# cleanup temp files
 rm -rf "$TEMP_DIR"
 rm -f /tmp/panel_update.zip
 
@@ -175,5 +193,7 @@ echo "==========================================${NC}"
 echo -e "Version: ${GREEN}$NEW_VERSION${NC}"
 echo -e "Backup: ${YELLOW}$BACKUP_FILE${NC}"
 echo ""
+
+cleanup_self
 
 exit 0
