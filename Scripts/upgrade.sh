@@ -1,5 +1,5 @@
 #!/bin/bash
-# NuoPanel Simple Upgrade Script v1.3
+# NuoPanel Simple Upgrade Script v1.4
 
 set -e
 
@@ -19,8 +19,15 @@ cleanup_self() {
 
 }
 
+# python path
+PYTHON_PATH="/root/.venv/bin/python"
+
+if [ ! -x "$PYTHON_PATH" ]; then
+    PYTHON_PATH=$(which python3)
+fi
+
 echo -e "${GREEN}=========================================="
-echo "NuoPanel Upgrade Script v1.3"
+echo "NuoPanel Upgrade Script v1.4"
 echo "==========================================${NC}"
 
 # ensure rsync exists
@@ -53,6 +60,11 @@ rollback() {
     else
         echo -e "${RED}Backup not found${NC}"
     fi
+
+    # remove gatilho interno novamente
+    rm -f "$PROJECT_DIR/etc/update"
+    rm -f "$PROJECT_DIR/etc/update.zip"
+    rm -f "$PROJECT_DIR/etc/update.tar.gz"
 
     cleanup_self
     exit 1
@@ -117,7 +129,7 @@ rsync -a \
 
 echo "OK rsync"
 
-# remove internal updater trigger
+# remove gatilho interno
 rm -f "$PROJECT_DIR/etc/update"
 rm -f "$PROJECT_DIR/etc/update.zip"
 rm -f "$PROJECT_DIR/etc/update.tar.gz"
@@ -125,37 +137,20 @@ rm -f "$PROJECT_DIR/etc/update.tar.gz"
 # migrate
 echo -e "${GREEN}[5/6] Django migrate${NC}"
 
-PYTHON_PATH="/root/.venv/bin/python"
-
-if [ ! -x "$PYTHON_PATH" ]; then
-    PYTHON_PATH=$(which python3)
-fi
-
 cd "$PROJECT_DIR"
 
 set +e
 
-OUTPUT=$($PYTHON_PATH manage.py migrate 2>&1)
-STATUS=$?
+$PYTHON_PATH manage.py migrate --fake
+STATUS1=$?
+
+$PYTHON_PATH manage.py migrate
+STATUS2=$?
 
 set -e
 
-echo "$OUTPUT"
-
-if [ $STATUS -ne 0 ]; then
-
-    if echo "$OUTPUT" | grep -qi "already exists"; then
-
-        echo "retry fake-initial"
-
-        $PYTHON_PATH manage.py migrate --fake-initial
-
-    else
-
-        exit 1
-
-    fi
-
+if [ $STATUS1 -ne 0 ] || [ $STATUS2 -ne 0 ]; then
+    exit 1
 fi
 
 echo "OK migrate"
