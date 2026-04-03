@@ -168,6 +168,11 @@ echo "OK restart"
 rm -rf "$TEMP_DIR"
 rm -f /tmp/panel_update.zip
 
+# remove gatilho novamente (garantia)
+rm -f "$PROJECT_DIR/etc/update"
+rm -f "$PROJECT_DIR/etc/update.zip"
+rm -f "$PROJECT_DIR/etc/update.tar.gz"
+
 VERSION=$(cat "$PROJECT_DIR/etc/version" 2>/dev/null || echo unknown)
 
 echo ""
@@ -176,5 +181,8 @@ echo "Version: $VERSION"
 echo "Backup: $BACKUP_FILE"
 
 cleanup_self
+
+# encerra processo que chamou o updater interno
+pkill -f "manage.py check_version" 2>/dev/null || true
 
 exit 0
