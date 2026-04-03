@@ -128,7 +128,7 @@ done
 echo -e "${GREEN}✅ All components updated${NC}"
 echo ""
 
-# Step 6: Run database migrations
+# Step 6: Run database migrations (FIXED - usar --fake quando tabelas existem)
 if [ "$(jq -r '.database_migrations' "$MANIFEST")" = "true" ]; then
     echo -e "${GREEN}Step 6: Running database migrations...${NC}"
     
@@ -138,7 +138,19 @@ if [ "$(jq -r '.database_migrations' "$MANIFEST")" = "true" ]; then
     fi
     
     cd "$PROJECT_DIR"
-    $PYTHON_PATH manage.py migrate --fake-initial 2>&1 | grep -v "No migrations to apply" || true
+    
+    # Tentar aplicar migrations normalmente
+    MIGRATION_OUTPUT=$($PYTHON_PATH manage.py migrate 2>&1)
+    MIGRATION_EXIT_CODE=$?
+    
+    # Se falhar por tabela existente, usar --fake
+    if echo "$MIGRATION_OUTPUT" | grep -q "already exists"; then
+        echo -e "${YELLOW}   Tables already exist, marking as fake...${NC}"
+        $PYTHON_PATH manage.py migrate --fake 2>&1 | grep -v "No migrations" || true
+    elif [ $MIGRATION_EXIT_CODE -ne 0 ]; then
+        echo -e "${RED}❌ Migration failed:${NC}"
+        echo "$MIGRATION_OUTPUT"
+    fi
     
     echo -e "${GREEN}✅ Migrations completed${NC}"
 else
