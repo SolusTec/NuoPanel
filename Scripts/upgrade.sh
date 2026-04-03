@@ -60,9 +60,9 @@ unzip -o "$DOWNLOAD_PATH" -d "$TEMP_DIR" > /dev/null
 echo -e "${GREEN}✅ Package extracted${NC}"
 echo ""
 
-# Step 4: Read manifest
+# Step 4: Read manifest (CORRIGIDO - sem panel_update/)
 echo -e "${GREEN}Step 4: Reading manifest.json...${NC}"
-MANIFEST="$TEMP_DIR/panel_update/manifest.json"
+MANIFEST="$TEMP_DIR/manifest.json"
 
 if [ ! -f "$MANIFEST" ]; then
     echo -e "${RED}❌ manifest.json not found! Old update format?${NC}"
@@ -99,9 +99,9 @@ for i in $(seq 0 $((COMPONENT_COUNT - 1))); do
     EXCLUDE_FILE="/tmp/exclude_${NAME}.txt"
     echo "$PRESERVE" > "$EXCLUDE_FILE"
     
-    # Sync files
+    # Sync files (CORRIGIDO - caminho sem panel_update/)
     rsync -a --exclude-from="$EXCLUDE_FILE" \
-        "$TEMP_DIR/panel_update/$SOURCE" "$DEST" 2>/dev/null || true
+        "$TEMP_DIR/$SOURCE" "$DEST" 2>/dev/null || true
     
     # Set permissions
     if [ "$OWNER" != "null" ] && [ "$GROUP" != "null" ]; then
