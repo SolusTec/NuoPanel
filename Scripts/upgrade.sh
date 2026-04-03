@@ -1,5 +1,5 @@
 #!/bin/bash
-# NuoPanel Simple Upgrade Script v1.0
+# NuoPanel Simple Upgrade Script v1.0 with auto rollback
 
 set -e
 
@@ -9,8 +9,15 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo -e "${GREEN}=========================================="
-echo "NuoPanel Upgrade Script v3.1"
+echo "NuoPanel Upgrade Script v3.3"
 echo "==========================================${NC}"
+
+# check rsync
+if ! command -v rsync >/dev/null 2>&1; then
+    echo -e "${YELLOW}Installing rsync...${NC}"
+    apt-get update -y >/dev/null 2>&1
+    apt-get install -y rsync >/dev/null 2>&1
+fi
 
 # Detect project directory
 if [ -f "/etc/nuopanel/base_dir" ]; then
@@ -22,50 +29,63 @@ fi
 BACKUP_DIR="/root/nuopanel_backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 TEMP_DIR="/tmp/nuopanel_update_$TIMESTAMP"
+BACKUP_FILE="$BACKUP_DIR/backup_$TIMESTAMP.tar.gz"
+
+rollback() {
+    echo ""
+    echo -e "${RED}ERROR detected, starting rollback...${NC}"
+
+    if [ -f "$BACKUP_FILE" ]; then
+        tar -xzf "$BACKUP_FILE" -C /
+        echo -e "${GREEN}Rollback completed${NC}"
+    else
+        echo -e "${RED}Backup not found, rollback failed${NC}"
+    fi
+
+    exit 1
+}
+
+trap rollback ERR
 
 echo -e "${YELLOW}Project: $PROJECT_DIR${NC}"
 echo ""
 
 # Step 1: Backup
-echo -e "${GREEN}[1/7] Creating backup...${NC}"
+echo -e "${GREEN}[1/6] Creating backup...${NC}"
+
 mkdir -p "$BACKUP_DIR"
 
-tar -czf "$BACKUP_DIR/backup_$TIMESTAMP.tar.gz" \
+tar -czf "$BACKUP_FILE" \
     "$PROJECT_DIR" \
     /usr/local/lsws/Example/html/phpmyadmin \
-    2>/dev/null || true
+    2>/dev/null
 
-echo -e "      OK Backup created"
+echo "OK Backup created"
 echo ""
 
 # Step 2: Download update
-echo -e "${GREEN}[2/7] Downloading update...${NC}"
+echo -e "${GREEN}[2/6] Downloading update...${NC}"
 
 UPDATE_URL="https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Assets/panel_update.zip"
 
 wget -q -O /tmp/panel_update.zip "$UPDATE_URL?t=$(date +%s)"
 
-if [ ! -f /tmp/panel_update.zip ]; then
-    echo -e "${RED}Download failed${NC}"
-    exit 1
-fi
-
-echo -e "      OK Downloaded"
+echo "OK Downloaded"
 echo ""
 
 # Step 3: Extract
-echo -e "${GREEN}[3/7] Extracting update...${NC}"
+echo -e "${GREEN}[3/6] Extracting update...${NC}"
 
 rm -rf "$TEMP_DIR"
 mkdir -p "$TEMP_DIR"
 
 unzip -q /tmp/panel_update.zip -d "$TEMP_DIR"
 
-echo -e "      OK Extracted to $TEMP_DIR"
+echo "OK Extracted"
 echo ""
 
 # Step 4: Apply update
-echo -e "${GREEN}[4/7] Applying update...${NC}"
+echo -e "${GREEN}[4/6] Applying update...${NC}"
 
 rsync -a \
 --exclude='usr/local/lsws/Example/html/nuopanel/etc/mysqlPassword' \
@@ -81,20 +101,11 @@ rsync -a \
 --exclude='usr/local/lsws/Example/html/nuopanel/3rdparty/rainloop/data/**' \
 "$TEMP_DIR/" /
 
-echo -e "      OK Files updated"
+echo "OK Files updated"
 echo ""
 
-# Step 5: Fix permissions
-echo -e "${GREEN}[5/7] Fixing permissions...${NC}"
-
-chown -R www-data:www-data "$PROJECT_DIR"
-chmod -R 755 "$PROJECT_DIR"
-
-echo -e "      OK Permissions fixed"
-echo ""
-
-# Step 6: Database migrations
-echo -e "${GREEN}[6/7] Running migrations...${NC}"
+# Step 5: Database migrations
+echo -e "${GREEN}[5/6] Running migrations...${NC}"
 
 PYTHON_PATH="/root/.venv/bin/python"
 
@@ -104,24 +115,23 @@ fi
 
 cd "$PROJECT_DIR"
 
-$PYTHON_PATH manage.py migrate \
-2>&1 | grep -E "Applying|Operations|WARNINGS" || echo "No migrations needed"
+$PYTHON_PATH manage.py migrate
 
-echo -e "      OK Migrations completed"
+echo "OK Migrations completed"
 echo ""
 
-# Step 7: Restart services
-echo -e "${GREEN}[7/7] Restarting services...${NC}"
+# Step 6: Restart services
+echo -e "${GREEN}[6/6] Restarting services...${NC}"
 
 systemctl restart cp 2>/dev/null || true
 sleep 2
 
 /usr/local/lsws/bin/lswsctrl restart 2>/dev/null || true
 
-echo -e "      OK Services restarted"
+echo "OK Services restarted"
 echo ""
 
-# Cleanup
+# cleanup
 rm -rf "$TEMP_DIR"
 rm -f /tmp/panel_update.zip
 
@@ -133,7 +143,7 @@ echo "Update Completed Successfully"
 echo "==========================================${NC}"
 
 echo -e "Version: ${GREEN}$NEW_VERSION${NC}"
-echo -e "Backup: ${YELLOW}$BACKUP_DIR/backup_$TIMESTAMP.tar.gz${NC}"
+echo -e "Backup: ${YELLOW}$BACKUP_FILE${NC}"
 echo ""
 
 exit 0
