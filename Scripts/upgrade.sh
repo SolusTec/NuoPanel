@@ -1,5 +1,5 @@
 #!/bin/bash
-# NuoPanel Simple Upgrade Script v1.0 with auto rollback
+# NuoPanel Simple Upgrade Script v3.3 with auto rollback
 
 set -e
 
@@ -9,7 +9,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo -e "${GREEN}=========================================="
-echo "NuoPanel Upgrade Script v3.3"
+echo "NuoPanel Upgrade Script v1.0"
 echo "==========================================${NC}"
 
 # check rsync
