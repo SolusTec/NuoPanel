@@ -1,5 +1,5 @@
 #!/bin/bash
-# NuoPanel Simple Upgrade Script v3.3 with auto rollback
+# NuoPanel Simple Upgrade Script v1.1 with safe migrations
 
 set -e
 
@@ -9,7 +9,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo -e "${GREEN}=========================================="
-echo "NuoPanel Upgrade Script v1.0"
+echo "NuoPanel Upgrade Script v3.4"
 echo "==========================================${NC}"
 
 # check rsync
@@ -32,6 +32,7 @@ TEMP_DIR="/tmp/nuopanel_update_$TIMESTAMP"
 BACKUP_FILE="$BACKUP_DIR/backup_$TIMESTAMP.tar.gz"
 
 rollback() {
+
     echo ""
     echo -e "${RED}ERROR detected, starting rollback...${NC}"
 
@@ -115,9 +116,38 @@ fi
 
 cd "$PROJECT_DIR"
 
-$PYTHON_PATH manage.py migrate
+set +e
 
-echo "OK Migrations completed"
+MIGRATE_OUTPUT=$($PYTHON_PATH manage.py migrate 2>&1)
+MIGRATE_EXIT=$?
+
+set -e
+
+echo "$MIGRATE_OUTPUT"
+
+if [ $MIGRATE_EXIT -eq 0 ]; then
+
+    echo "OK Migrations completed"
+
+else
+
+    if echo "$MIGRATE_OUTPUT" | grep -qi "already exists"; then
+
+        echo -e "${YELLOW}Detected existing tables, retrying with --fake-initial${NC}"
+
+        $PYTHON_PATH manage.py migrate --fake-initial
+
+        echo "OK Fake-initial applied"
+
+    else
+
+        echo -e "${RED}Migration failed${NC}"
+        exit 1
+
+    fi
+
+fi
+
 echo ""
 
 # Step 6: Restart services
