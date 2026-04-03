@@ -1,4 +1,14 @@
 #!/bin/bash
+
+UBUNTU_VERSION=$(lsb_release -sr | cut -d. -f1)
+
+# Define OpenLiteSpeed service name based on Ubuntu version
+if [ "$UBUNTU_VERSION" -ge 24 ]; then
+    SYSTEMD_SERVICE="lshttpd"
+else
+    SYSTEMD_SERVICE="lsws"
+fi
+
 if [ -f /etc/os-release ]; then
     . /etc/os-release
     OS_NAME=$ID
@@ -7,47 +17,25 @@ elif [ -f /etc/centos-release ]; then
     OS_NAME="centos"
     OS_VERSION=$(awk '{print $4}' /etc/centos-release | cut -d. -f1)  # Remove decimal part
 fi
-
-SYSTEMD_SERVICE="lsws"
-
-if [ "$OS_NAME" == "centos" ] || [ "$OS_NAME" == "almalinux" ] || [ "$OS_NAME" == "rhel" ] || [ "$OS_NAME" == "fedora" ] || [ "$OS_NAME" == "rocky" ] || [ "$OS_NAME" == "oraclelinux" ]; then
-    # For CentOS, AlmaLinux, RHEL, Fedora, Rocky, Oracle Linux, use dnf or yum
-    if command -v dnf &> /dev/null; then
-        PACKAGE_MANAGER="dnf"
+install_sudo() {
+    # Check if sudo is installed
+    if ! command -v sudo &> /dev/null; then
+        echo "sudo not found. Installing sudo..."
+        # Check if the user is root
+        if [ "$(id -u)" -ne 0 ]; then
+            echo "You need to be root to install sudo. Switching to root."
+            # Using su to execute the command as root
+            su -c "apt update && apt install sudo -y"
+        else
+            # If already root, install sudo directly
+            apt update && apt install sudo -y
+        fi
     else
-        PACKAGE_MANAGER="yum"
-    fi
-else
-    echo "Unsupported OS: $OS_NAME"
-   
-fi
-
-if [[ ("$OS_NAME" == "centos") && ("$OS_VERSION" == "7") ]]; then
-repo_file=/etc/yum.repos.d/CentOS-Base.repo
-cp ${repo_file} ~/CentOS-Base.repo.backup
-sudo sed -i s/#baseurl/baseurl/ ${repo_file}
-sudo sed -i s/mirrorlist.centos.org/vault.centos.org/ ${repo_file}
-sudo sed -i s/mirror.centos.org/vault.centos.org/ ${repo_file}
-sudo yum clean all
-sudo yum update -y && sudo yum install -y wget curl
-fi
-install_rust() {
-    echo "Installing Rust..."
-
-    # Install Rust using rustup
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-    # Follow the instructions for environment setup
-    echo "Please restart your shell or run: source ~/.bashrc"
-
-    # Check the Rust installation
-    if command -v rustc &> /dev/null; then
-        echo "Rust installed successfully!"
-        rustc --version
-    else
-        echo "Rust installation failed."
+        echo "sudo is already installed."
     fi
 }
 
+install_sudo
 # Function to wait for the apt lock to be released
 wait_for_apt_lock() {
     while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
@@ -55,80 +43,61 @@ wait_for_apt_lock() {
         sleep 5
     done
 }
+
 disable_kernel_message() {
+    # Check if needrestart is installed
+    if ! dpkg -l | grep -q "^ii  needrestart"; then
+        echo "needrestart not found. Installing..."
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq needrestart
+        if [ $? -eq 0 ]; then
+            echo "needrestart installed successfully."
+        else
+            echo "Failed to install needrestart. Skipping configuration."
+            return 1
+        fi
+    fi
+    
+    # Configure needrestart
     sudo sed -i 's/^#\?\(\$nrconf{kernelhints} = \).*/\1 0;/' /etc/needrestart/needrestart.conf
     sudo sed -i 's/^#\?\(\$nrconf{restart} = \).*/\1"a";/' /etc/needrestart/needrestart.conf
-    sudo systemctl restart needrestart
+    
+    # Restart service (silently ignore if not a systemd service)
+    sudo systemctl restart needrestart 2>/dev/null || true
+    
     echo "Kernel upgrade message disabled."
 }
-
 # Function to generate a MariaDB-compatible random password
 generate_mariadb_password() {
     # Generate a random password with 16 characters
     DB_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 16)
     echo "$DB_PASSWORD"
 }
-install_pipx() {
-install_rust
+install_pip() {
     echo "Updating system..."
     wait_for_apt_lock
+    sudo apt update && sudo apt upgrade -y
     echo "Installing Python..."
     wait_for_apt_lock
-    sudo ${PACKAGE_MANAGER} groupinstall "Development Tools" -y
-    sudo ${PACKAGE_MANAGER} install -y python3
-    sudo ${PACKAGE_MANAGER} install -y python3-pip
-    sudo ${PACKAGE_MANAGER} install mysql-devel -y
+    sudo apt install python3 python3-venv python3-pip pkg-config libmysqlclient-dev -y
+    
+    # Check Ubuntu version and use virtual environment if Ubuntu 24.04+
 
-    
-      
-    pip3 install setuptools-rust 
-    #pip3 install -r requirements.txt
-    echo "Upgrading pip and setuptools..."
-    pip3 install --upgrade pip
-    echo "Installing mysqlclient..."
-    pip3 install --no-binary :all: mysqlclient
-    
+        echo "Creating virtual environment for Python dependencies..."
+        python3 -m venv /root/.venv
+        . /root/.venv/bin/activate
    
     
-    echo "Python and pip setup completed!"
-}
-
-install_pip() {
-    install_rust
+    echo "Upgrading pip and setuptools..."
+    pip install --upgrade pip setuptools
+    echo "Installing mysqlclient..."
+    pip install --no-binary :all: mysqlclient
     
     
-    if [[ ("$OS_NAME" == "centos" || "$OS_NAME" == "almalinux") && ("$OS_VERSION" == "7" || "$OS_VERSION" == "8") ]]; then
-        python="python3.12"
-    else
-        python="python3"
-    fi
-echo "Installing Python on ${OS_NAME} version ${OS_VERSION}  dependencies...${python}"
-    sudo ${PACKAGE_MANAGER} install -y epel-release
-    sudo ${PACKAGE_MANAGER} install -y ${PACKAGE_MANAGER}-utils
-    sudo ${PACKAGE_MANAGER} config-manager --set-enabled powertools
-    sudo ${PACKAGE_MANAGER} install -y "${python}" "${python}-pip"
-    sudo ${PACKAGE_MANAGER} groupinstall "Development Tools" -y
-    sudo ${PACKAGE_MANAGER} install -y "${python}-devel" mysql-devel
-
-    "${python}" -m pip install --upgrade pip setuptools-rust
-
-    wget -O ub24req.txt "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/ub24req.txt"
-
-    VENV_DIR="/root/.venv"
-	if [ -d "$VENV_DIR" ]; then
-        rm -rf "$VENV_DIR"
-    fi
-	
-    if [ ! -d "$VENV_DIR" ]; then
-        "${python}" -m venv "$VENV_DIR"
-    fi
-
-    source "$VENV_DIR/bin/activate"
-    "${VENV_DIR}/bin/${python}" -m pip install --upgrade pip
-    "${VENV_DIR}/bin/${python}" -m pip install -r ub24req.txt
     deactivate
-
-    echo "${python} and pip setup completed!"
+  
+    
+    echo "Python and pip setup completed!"
 }
 
 # Function to install MySQL/MariaDB development libraries
@@ -138,16 +107,15 @@ install_mariadb() {
 
     if [ -z "$MYSQL_ROOT_PASSWORD" ]; then
         echo "Error: No password provided for root user. Skipping this task."
-          # Skip task and continue with the script
+        return 1  # Skip task and continue with the script
     fi
 
     echo "Installing MariaDB server and client..."
-    sudo ${PACKAGE_MANAGER} install -y mariadb-server mariadb
-    sudo systemctl enable mariadb
-    sudo systemctl start mariadb
+    sudo apt update && sudo apt install -y mariadb-server mariadb-client
+
     if [ $? -ne 0 ]; then
         echo "Failed to install MariaDB. Skipping this task."
-          # Skip task and continue with the script
+        return 1  # Skip task and continue with the script
     fi
 
     echo "Securing MariaDB installation..."
@@ -164,7 +132,7 @@ EOF
 
     if [ $? -ne 0 ]; then
         echo "Failed to secure MariaDB installation. Skipping this task."
-          # Skip task and continue with the script
+        return 1  # Skip task and continue with the script
     fi
 
     
@@ -179,7 +147,7 @@ change_mysql_root_password() {
 
     if [ -z "$NEW_PASSWORD" ]; then
         echo "Usage: change_mysql_root_password <new_password>"
-        
+        return 1
     fi
 
     # Run the SQL command to change the root password
@@ -190,7 +158,7 @@ change_mysql_root_password() {
     # Check for errors
     if echo "$OUTPUT" | grep -qE "ERROR|Access denied|authentication failure|wrong password"; then
         echo "Error: Failed to change the root password. Skipping to next task..."
-          # Continue to the next task in a script
+        return 1  # Continue to the next task in a script
     fi
 
     echo "MariaDB root password changed successfully."
@@ -204,7 +172,7 @@ create_database_and_user() {
     # Check if all required arguments are provided
     if [ -z "$ROOT_PASSWORD" ] || [ -z "$DB_NAME" ] || [ -z "$DB_USER" ]; then
         echo "Usage: create_database_and_user <root_password> <database_name> <username>"
-        
+        return 1
     fi
 
     # Generate a random password for the new user
@@ -231,7 +199,7 @@ EOF
        
     else
         echo "Failed to create database or user. Please check the MariaDB server status and root password."
-        
+        return 1
     fi
 }
 
@@ -241,7 +209,7 @@ get_password_from_file() {
     # Check if the file exists
     if [ ! -f "$password_file" ]; then
         echo "Error: File $password_file does not exist." >&2
-        
+        return 1
     fi
 
     # Read the password from the file
@@ -251,7 +219,7 @@ get_password_from_file() {
     # Check if the password is empty
     if [ -z "$password" ]; then
         echo "Error: File $password_file is empty." >&2
-        
+        return 1
     fi
 
     # Return the password
@@ -266,13 +234,13 @@ import_database() {
     # Check if all required arguments are provided
     if [ -z "$ROOT_PASSWORD" ] || [ -z "$DB_NAME" ] || [ -z "$DUMP_FILE" ]; then
         echo "Usage: import_database <root_password> <database_name> <dump_file>"
-        
+        return 1
     fi
 
     # Check if the dump file exists
     if [ ! -f "$DUMP_FILE" ]; then
         echo "Error: Dump file '$DUMP_FILE' does not exist."
-        
+        return 1
     fi
 
     echo "Importing database from '$DUMP_FILE' into '$DB_NAME'..."
@@ -284,29 +252,10 @@ import_database() {
         echo "Database imported successfully into '${DB_NAME}'."
     else
         echo "Failed to import the database. Please check the root password, database name, and dump file."
-        
+        return 1
     fi
 }
 install_mail_and_ftp_server() {
-if [[ "$OS_NAME" == "centos" || "$OS_NAME" == "almalinux" ]]; then
-    if [[ "$OS_VERSION" == "7" ]]; then
-        PKG_MANAGER="yum"
-        sudo yum install -y epel-release
-
-    elif [[ "$OS_VERSION" == "8" || "$OS_VERSION" == "9" ]]; then
-        PKG_MANAGER="dnf"
-        sudo dnf install -y epel-release
-    else
-        echo "Unsupported OS version: $OS_VERSION"
-        
-    fi
-
-    echo "Using package manager: $PKG_MANAGER"
-else
-    echo "Unsupported OS: $OS_NAME"
-   
-fi
-
     # Configure Postfix to automatically choose 'Internet site' option during installation
     echo "postfix postfix/mailname string example.com" | sudo debconf-set-selections
     echo "postfix postfix/main_mailer_type string 'Internet Site'" | sudo debconf-set-selections
@@ -318,75 +267,130 @@ fi
    
 
     # Install Postfix and related packages
-    #sudo dnf install -y postfix postfix-mysql dovecot-core dovecot-imapd dovecot-pop3d dovecot-lmtpd dovecot-mysql
-    sudo ${PACKAGE_MANAGER} install -y postfix postfix-mysql dovecot dovecot-mysql
-sudo systemctl enable postfix
-sudo systemctl start postfix
+    sudo apt-get install -y postfix postfix-mysql dovecot-core dovecot-imapd dovecot-pop3d dovecot-lmtpd dovecot-mysql
+
+    # Check if Postfix and Dovecot installation is successful
+    if [ $? -ne 0 ]; then
+        echo "Failed to install Postfix, Dovecot, or MariaDB. Exiting."
+        exit 1
+    fi
 
     # Install Dovecot SQLite backend
-    sudo ${PACKAGE_MANAGER} install -y dovecot-sqlite dovecot-mysql
-sudo ${PACKAGE_MANAGER} install -y dovecot dovecot-mysql
+    sudo apt-get install -y dovecot-sqlite dovecot-mysql
 
-   
+    # Check if Dovecot SQLite installation is successful
+    if [ $? -ne 0 ]; then
+        echo "Failed to install Dovecot SQLite backend. Exiting."
+        exit 1
+    fi
 
     # Install Pure-FTPd MySQL support
-    sudo ${PACKAGE_MANAGER} install -y pure-ftpd
+    sudo apt install -y pure-ftpd-mysql
 
-   
+    # Check if Pure-FTPd installation is successful
+    if [ $? -ne 0 ]; then
+        echo "Failed to install Pure-FTPd. Exiting."
+        exit 1
+    fi
     
-    sudo ${PACKAGE_MANAGER} install -y opendkim opendkim-tools
+    sudo apt install opendkim opendkim-tools -y
     echo "Mail server and FTP server installation completed successfully!"
-    sudo systemctl enable pure-ftpd
-sudo systemctl start pure-ftpd
-sudo systemctl enable dovecot
-sudo systemctl start dovecot
-sudo systemctl enable opendkim
-sudo systemctl start opendkim
 }
 
 install_powerdns_and_mysql_backend() {
-    echo "Detecting OS and Version..."
+    # Install OpenSSL and PowerDNS with MySQL backend
+    echo "Installing OpenSSL, PowerDNS, and PowerDNS MySQL backend..."
+
+    # Install necessary packages
     
-    if [[ "$OS_NAME" == "centos" || "$OS_NAME" == "almalinux" ]]; then
-        if [[ "$OS_VERSION" == "7" ]]; then
-            PKG_MANAGER="yum"
-            sudo yum install -y epel-release
-            sudo curl -o /etc/yum.repos.d/powerdns-auth-43.repo https://nuopanel.com/repo-files/centos-auth-43.repo
-			sudo $PKG_MANAGER install -y openssl pdns pdns-backend-mysql
-        elif [[ "$OS_VERSION" == "8" ]]; then
-            PKG_MANAGER="dnf"
-            sudo curl -o /etc/yum.repos.d/powerdns-auth-43.repo https://nuopanel.com/repo-files/centos-auth-43.repo
-			sudo $PKG_MANAGER install -y openssl pdns pdns-backend-mysql
-        else
-             sudo dnf install -y openssl pdns pdns-backend-mysql
-            
-        fi
-    else
-        sudo dnf install -y openssl pdns pdns-backend-mysql
+    sudo apt install -y openssl pdns-server pdns-backend-mysql
+
+    if [ $? -ne 0 ]; then
+        echo "Failed to install necessary packages. Exiting."
+        exit 1
     fi
 
-    echo "Installing OpenSSL, PowerDNS, and PowerDNS MySQL backend..."
-    
-    systemctl start pdns
-    systemctl enable pdns
-
-   
-
+    # Configure permissions for pdns.conf
     echo "Configuring permissions for /etc/powerdns/pdns.conf..."
-	if [ -f "/etc/pdns/pdns.conf" ]; then
-    PDNS_DIR="pdns"
-elif [ -f "/etc/powerdns/pdns.conf" ]; then
-    PDNS_DIR="powerdns"
-else
-    echo "PowerDNS configuration file not found!"
-    
-fi
-    sudo chmod 644 /etc/${PDNS_DIR}/pdns.conf
-    sudo chown pdns:pdns /etc/${PDNS_DIR}/pdns.conf
+
+    # Set correct permissions for PowerDNS configuration file
+    sudo chmod 644 /etc/powerdns/pdns.conf
+    sudo chown pdns:pdns /etc/powerdns/pdns.conf
+
+    if [ $? -eq 0 ]; then
+        echo "Permissions set for /etc/powerdns/pdns.conf successfully."
+    else
+        echo "Failed to set permissions for /etc/powerdns/pdns.conf."
+        exit 1
+    fi
 
     echo "PowerDNS installation and configuration completed successfully!"
+
+install_rspamd_and_redis() {
+    echo "Installing Rspamd and Redis..."
+    
+    # 1. Adicionar repositório oficial do Rspamd
+    apt install -y lsb-release wget gpg
+    CODENAME=$(lsb_release -c -s)
+    wget -O- https://rspamd.com/apt-stable/gpg.key | gpg --dearmor > /usr/share/keyrings/rspamd.gpg
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/rspamd.gpg] http://rspamd.com/apt-stable/ $CODENAME main" > /etc/apt/sources.list.d/rspamd.list
+    
+    # 2. Atualizar lista de pacotes
+    apt update
+    
+    # 3. Instalar Rspamd e Redis
+    apt install -y rspamd redis-server
+    
+    # 4. Verificar instalação
+    if [ $? -ne 0 ]; then
+        echo "Failed to install Rspamd or Redis. Exiting."
+        exit 1
+    fi
+    
+    # 5. Habilitar serviços
+    systemctl enable rspamd
+    systemctl enable redis-server
+    
+    echo "Rspamd and Redis installed successfully."
 }
 
+configure_rspamd_password() {
+    echo "Configuring Rspamd password..."
+    
+    # 1. Definir senha padrão
+    PASSWORD="nuopanel2026"
+    
+    # 2. Gerar hash usando rspamadm
+    HASH=$(rspamadm pw --encrypt -p "$PASSWORD")
+    
+    if [ $? -ne 0 ]; then
+        echo "Failed to generate Rspamd password hash. Exiting."
+        exit 1
+    fi
+    
+    # 3. Substituir placeholder no arquivo de configuração
+    sed -i "s/%rspamd_password_hash%/$HASH/g" /etc/rspamd/local.d/worker-controller.inc
+    
+    # 4. Definir permissões corretas
+    chmod 644 /etc/rspamd/*.map
+    chmod 644 /etc/rspamd/local.d/*.conf
+    chmod 644 /etc/rspamd/local.d/*.inc
+    
+    # 5. Testar configuração
+    rspamadm configtest
+    
+    if [ $? -ne 0 ]; then
+        echo "Rspamd configuration test failed."
+        exit 1
+    fi
+    
+    # 6. Iniciar/reiniciar Rspamd
+    systemctl restart rspamd
+    systemctl restart redis-server
+    
+    echo "Rspamd configured. WebUI Password: $PASSWORD"
+}
+}
 copy_files_and_replace_password() {
     local SOURCE_DIR="$1"
     local TARGET_DIR="$2"
@@ -395,13 +399,13 @@ copy_files_and_replace_password() {
     # Check if all required arguments are provided
     if [ -z "$SOURCE_DIR" ] || [ -z "$TARGET_DIR" ] || [ -z "$NEW_PASSWORD" ]; then
         echo "Usage: copy_files_and_replace_password <source_directory> <target_directory> <new_password>"
-        
+        return 1
     fi
 
     # Ensure the source directory exists
     if [ ! -d "$SOURCE_DIR" ]; then
         echo "Source directory '$SOURCE_DIR' does not exist. Exiting."
-        
+        return 1
     fi
 
     # Ensure the target directory exists, create it if it doesn't
@@ -424,7 +428,7 @@ copy_files_and_replace_password() {
         echo "Password replacement completed in files."
     else
         echo "Failed to copy files. Exiting."
-       
+        return 1
     fi
     # Create vmail group and user
     echo "Setting up 'vmail' group and user..."
@@ -468,17 +472,12 @@ copy_files_and_replace_password() {
     sudo chmod -R 700 /home/vmail
 
     # Set ownership to root and postfix
-   # sudo chown root:postfix /etc/letsencrypt/live/mail.example.com/privkey.pem
-   # sudo chown root:postfix /etc/letsencrypt/live/mail.example.com/fullchain.pem
+   # sudo chown root:postfix /etc/letsencrypt/live/mail.chandpurtelecom.xyz/privkey.pem
+   # sudo chown root:postfix /etc/letsencrypt/live/mail.chandpurtelecom.xyz/fullchain.pem
 
     # Set permissions
-   # sudo chmod 640 /etc/letsencrypt/live/mail.example.com/privkey.pem
-   # sudo chmod 644 /etc/letsencrypt/live/mail.example.com/fullchain.pem
-if [ -f "/etc/pdns/pdns.conf" ]; then
-    PDNS_DIR="pdns"
-   cp /root/item/move/etc/powerdns/pdns.conf /etc/pdns/pdns.conf
-fi
-  find "/etc/pdns/pdns.conf" -type f -exec sed -i "s/%password%/$NEW_PASSWORD/g" {} \; 
+   # sudo chmod 640 /etc/letsencrypt/live/mail.chandpurtelecom.xyz/privkey.pem
+   # sudo chmod 644 /etc/letsencrypt/live/mail.chandpurtelecom.xyz/fullchain.pem
 }
 
 generate_pureftpd_ssl_certificate() {
@@ -491,10 +490,10 @@ generate_pureftpd_ssl_certificate() {
     # Check if OpenSSL is installed
     if ! command -v openssl &> /dev/null; then
         echo "OpenSSL is not installed. Installing it now..."
-        sudo ${PACKAGE_MANAGER} install -y openssl
+        sudo apt install -y openssl
         if [ $? -ne 0 ]; then
             echo "Failed to install OpenSSL. Exiting."
-           
+            return 1
         fi
     else
         echo "OpenSSL is already installed."
@@ -519,7 +518,7 @@ generate_pureftpd_ssl_certificate() {
         echo "Permissions for $CERT_PATH set to 600."
     else
         echo "Failed to generate the SSL certificate. Please check the OpenSSL configuration."
-       
+        return 1
     fi
 }
 # Function to suppress "need restart" prompts
@@ -541,57 +540,6 @@ check_and_reboot() {
         echo "No reboot required."
     fi
 }
-
-setup_nobody_nogroup() {
-sudo groupadd nuopanel
-sudo useradd -r -s /usr/sbin/nologin -g nuopanel nuopanel
-    # Check if 'nobody' user exists
-    if ! getent passwd nobody > /dev/null; then
-        echo "Creating 'nobody' user..."
-        sudo useradd -r -s /usr/sbin/nologin -g nogroup nobody
-    else
-        echo "'nobody' user already exists."
-    fi
-
-    # Check if 'nogroup' group exists
-    if ! getent group nogroup > /dev/null; then
-        echo "Creating 'nogroup' group..."
-        sudo groupadd nogroup
-    else
-        echo "'nogroup' group already exists."
-    fi
-
-    # Ensure 'nobody' user has UID 99 and 'nogroup' has GID 99
-    echo "Ensuring 'nobody' user has UID 99 and 'nogroup' has GID 99..."
-    sudo usermod -u 99 nobody
-    sudo groupmod -g 99 nogroup
-
-    # Update OpenLiteSpeed configuration to use 'nobody' and 'nogroup'
-    CONFIG_FILE="/usr/local/lsws/conf/httpd_config.conf"
-
-    if [ -f "$CONFIG_FILE" ]; then
-        echo "Updating OpenLiteSpeed configuration..."
-        sudo sed -i 's/^user .*/user nobody/' $CONFIG_FILE
-        sudo sed -i 's/^group .*/group nogroup/' $CONFIG_FILE
-    else
-        echo "OpenLiteSpeed configuration file not found at $CONFIG_FILE. Please check the path."
-    fi
-
-    # Restart OpenLiteSpeed to apply changes
-    echo "Restarting OpenLiteSpeed..."
-    sudo /usr/local/lsws/bin/lswsctrl restart
-
-    echo "Setup complete."
-}
-setup_www_data_group() {
-    # Check if 'www-data' group exists
-    if ! getent group www-data > /dev/null; then
-        echo "Creating 'www-data' group..."
-        sudo groupadd www-data
-    else
-        echo "'www-data' group already exists."
-    fi
-}
 install_openlitespeed() {
     local NEW_ADMIN_USERNAME="admin"   # Default admin username
     local NEW_ADMIN_PASSWORD="$1" # Default admin password
@@ -599,7 +547,7 @@ install_openlitespeed() {
     echo "Installing OpenLiteSpeed Web Server on Ubuntu..."
     wget -O openlitespeed.sh https://repo.litespeed.sh
     sudo bash openlitespeed.sh
-    sudo ${PACKAGE_MANAGER} install openlitespeed -y
+    sudo apt install openlitespeed -y
     
     if command -v lswsctrl &> /dev/null; then
         echo "OpenLiteSpeed installed successfully."
@@ -608,22 +556,17 @@ install_openlitespeed() {
         sudo systemctl enable "$SYSTEMD_SERVICE"
         echo "Checking OpenLiteSpeed version..."
         sudo /usr/local/lsws/bin/lshttpd -v
-	
-
-
     else
         echo "OpenLiteSpeed installation failed. Please check for errors."
-        
+        return 1
     fi
-    setup_nobody_nogroup
-    setup_www_data_group
 }
 change_ols_password() {
     # Check if a custom password is provided as an argument
     if [ -z "$1" ]; then
         echo "Error: No password provided."
         echo "Usage: change_ols_password <your_custom_password>"
-        
+        return 1
     fi
 
     # Store the custom password
@@ -636,7 +579,7 @@ change_ols_password() {
     # Check if the encryption was successful
     if [ $? -ne 0 ]; then
         echo "Error: Password encryption failed."
-        
+        return 1
     fi
 
     # Clear and update the htpasswd file with the new credentials
@@ -657,7 +600,7 @@ change_ols_password() {
 copy_conf_for_ols() {
     # Define the source and target directories
     local SSL_SOURCE_DIR="/root/item/move/conf/ssl"
-    local SSL_TARGET_DIR="/etc/letsencrypt/live/example.com"
+    local SSL_TARGET_DIR="/etc/letsencrypt/live/chandpurtelecom.xyz"
     local HTTPD_CONFIG_SOURCE="/root/item/move/conf/httpd_config.conf"
     local HTTPD_CONFIG_TARGET="/usr/local/lsws/conf/httpd_config.conf"
     local SERVER_IP=$(curl -4 ifconfig.me)
@@ -665,7 +608,7 @@ copy_conf_for_ols() {
     # Ensure the source SSL directory exists
     if [ ! -d "$SSL_SOURCE_DIR" ]; then
         echo "Source SSL directory '$SSL_SOURCE_DIR' does not exist. Exiting."
-       
+        return 1
     fi
 
     # Ensure the target SSL directory exists, create it if it doesn't
@@ -683,34 +626,31 @@ copy_conf_for_ols() {
     # Ensure the source httpd config file exists
     if [ ! -f "$HTTPD_CONFIG_SOURCE" ]; then
         echo "Source httpd config file '$HTTPD_CONFIG_SOURCE' does not exist. Exiting."
-       
+        return 1
     fi
 
     # Copy the httpd config file
     echo "Copying httpd config file '$HTTPD_CONFIG_SOURCE' to '$HTTPD_CONFIG_TARGET'..."
     cp -v "$HTTPD_CONFIG_SOURCE" "$HTTPD_CONFIG_TARGET"
 	sudo systemctl restart openlitespeed
-        # sudo chown root:postfix /etc/letsencrypt/live/mail.example.com/privkey.pem
-        # sudo chown root:postfix /etc/letsencrypt/live/mail.example.com/fullchain.pem
+        # sudo chown root:postfix /etc/letsencrypt/live/mail.chandpurtelecom.xyz/privkey.pem
+        # sudo chown root:postfix /etc/letsencrypt/live/mail.chandpurtelecom.xyz/fullchain.pem
 
     # Set permissions
-      # sudo chmod 640 /etc/letsencrypt/live/mail.example.com/privkey.pem
-      # sudo chmod 644 /etc/letsencrypt/live/mail.example.com/fullchain.pem
+      # sudo chmod 640 /etc/letsencrypt/live/mail.chandpurtelecom.xyz/privkey.pem
+      # sudo chmod 644 /etc/letsencrypt/live/mail.chandpurtelecom.xyz/fullchain.pem
     echo "Copy operation completed."
 }
 
 allow_ports() {
-sudo ${PACKAGE_MANAGER} install ufw -y
-sudo systemctl stop firewalld
-sudo systemctl disable firewalld
-sudo systemctl mask firewalld
+sudo apt install bind9-dnsutils -y
+sudo apt install ufw -y
 sudo systemctl enable ufw
 sudo systemctl start ufw
 echo "y" | sudo ufw enable
-
     if [ $# -eq 0 ]; then
         echo "Error: No ports specified."
-        
+        return 1
     fi
 
     echo "Allowing specified ports through UFW and iptables..."
@@ -732,13 +672,14 @@ echo "y" | sudo ufw enable
     sudo iptables -A INPUT -p tcp --dport 40110:40210 -j ACCEPT
     sudo iptables -A OUTPUT -p tcp --dport 40110:40210 -j ACCEPT
     echo "Allowed 40110:40210/tcp through both UFW and iptables."
-sudo ufw allow 53
-    # Reload UFW to apply changes
+
+    sudo ufw allow 53/udp
     sudo ufw reload
     echo "UFW rules reloaded."
 
     return 0
 }
+
 install_zip_and_tar() {
     # Update package list
     echo "Updating package list..."
@@ -747,7 +688,7 @@ install_zip_and_tar() {
     # Install zip if not already installed
     if ! command -v zip &> /dev/null; then
         echo "Installing zip..."
-        sudo ${PACKAGE_MANAGER} install zip -y
+        sudo apt install zip -y
     else
         echo "zip is already installed."
     fi
@@ -755,7 +696,7 @@ install_zip_and_tar() {
     # Install tar if not already installed
     if ! command -v tar &> /dev/null; then
         echo "Installing tar..."
-        sudo ${PACKAGE_MANAGER} install tar -y
+        sudo apt install tar -y
     else
         echo "tar is already installed."
     fi
@@ -771,7 +712,7 @@ install_acme_sh() {
 }
 unzip_and_move() {
 
-    wget -O /root/item/panel_setup.zip "https://nuopanel.com/panel_setup.zip"
+    wget -O /root/item/panel_setup.zip "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Assets/panel_setup.zip"
     local zip_file="/root/item/panel_setup.zip"
     local extract_dir="/root/item/cp"
     local target_dir="/usr/local/lsws/Example/html"
@@ -779,7 +720,7 @@ unzip_and_move() {
     # Ensure the zip file exists
     if [ ! -f "$zip_file" ]; then
         echo "Zip file '$zip_file' does not exist. Exiting."
-        
+        return 1
     fi
 
     # Ensure the target directory exists, create it if it doesn't
@@ -799,7 +740,7 @@ unzip_and_move() {
     unzip -o "$zip_file" -d "$extract_dir"
     if [ $? -ne 0 ]; then
         echo "Failed to unzip '$zip_file'. Exiting."
-        
+        return 1
     fi
 
     # Move all extracted files to the target directory
@@ -883,7 +824,7 @@ copy_mysql_password() {
     # Ensure the source file exists
     if [ ! -f "$source_file" ]; then
         echo "Source file '$source_file' does not exist. Exiting."
-        
+        return 1
     fi
 
     # Ensure the target directory exists, create it if it doesn't
@@ -892,7 +833,7 @@ copy_mysql_password() {
         mkdir -p "$target_dir"
         if [ $? -ne 0 ]; then
             echo "Failed to create target directory '$target_dir'. Exiting."
-            
+            return 1
         fi
     fi
 
@@ -901,13 +842,49 @@ copy_mysql_password() {
     cp "$source_file" "$target_file"
     if [ $? -ne 0 ]; then
         echo "Failed to copy '$source_file' to '$target_file'. Exiting."
-        
+        return 1
     fi
 	sudo systemctl restart cp
 
     echo "File copied successfully from '$source_file' to '$target_file'."
 }
 
+django_setup() {
+    echo "============================================================"
+    echo "DJANGO SETUP - CRITICAL SECTION"
+    echo "============================================================"
+    
+    # 1. Criar arquivo time.zone obrigatório
+    echo "Creating time.zone file..."
+    touch /usr/local/lsws/Example/html/nuopanel/etc/time.zone
+    
+    # 2. Aplicar migrations Django
+    echo "Applying Django migrations..."
+    . /root/.venv/bin/activate
+    cd /usr/local/lsws/Example/html/nuopanel
+    
+    # Marcar migration 0005 como aplicada (tabelas já existem no panel_db.sql)
+    /root/.venv/bin/python manage.py migrate --fake users 0005
+    
+    # Aplicar demais migrations
+    /root/.venv/bin/python manage.py migrate
+    
+    # 3. Resetar senha do admin
+    echo "Setting admin password..."
+    /root/.venv/bin/python manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
+    
+    # 4. Instalar OLSApp
+    echo "Installing OLSApp..."
+    /root/.venv/bin/python manage.py install_olsapp
+    
+    deactivate
+    cd -
+    
+    echo "Django setup completed!"
+    
+    # Reiniciar serviço cp
+    sudo systemctl restart cp
+}
 set_ownership_and_permissions() {
     sudo chown -R www-data:www-data /usr/local/lsws/Example/html/phpmyadmin 
     sudo chmod -R 755 /usr/local/lsws/Example/html/phpmyadmin 
@@ -917,18 +894,14 @@ set_ownership_and_permissions() {
     sudo chown -R www-data:www-data /usr/local/lsws/Example/html/webmail
     sudo chmod -R 755 /usr/local/lsws/Example/html/webmail
     sudo groupadd nobody
+    sudo groupadd nuopanel
     sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data
     sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data
     sudo chmod -R 755 /usr/local/lsws/Example/html/webmail/data
     echo "Ownership and permissions set successfully for all specified directories."
 }
 add_backup_cronjobs() {
- if [[ ("$OS_NAME" == "centos" || "$OS_NAME" == "almalinux") && ("$OS_VERSION" == "7" || "$OS_VERSION" == "8") ]]; then
-        local PYTHON_CMD="/root/.venv/bin/python3.12"
-    else
-        local PYTHON_CMD="/root/.venv/bin/python3"
-    fi
-
+    local PYTHON_CMD="/root/.venv/bin/python"
     local BACKUP_SCRIPT="/usr/local/lsws/Example/html/nuopanel/manage.py"
 
     # Define the cron jobs
@@ -955,7 +928,7 @@ remove_files_in_html_folder() {
     # Check if the target directory exists
     if [ ! -d "$target_dir" ]; then
         echo "Directory '$target_dir' does not exist. Exiting."
-        
+        return 1
     fi
 
     # Loop through the files to remove and delete them
@@ -966,7 +939,7 @@ remove_files_in_html_folder() {
             rm -f "$file_path"
             if [ $? -ne 0 ]; then
                 echo "Failed to remove '$file_path'. Exiting."
-                
+                return 1
             fi
         else
             echo "File '$file_path' does not exist."
@@ -984,7 +957,7 @@ copy_vhconf_to_example() {
     # Ensure the source file exists
     if [ ! -f "$source_file" ]; then
         echo "Source file '$source_file' does not exist. Exiting."
-        
+        return 1
     fi
 
     # Ensure the target directory exists
@@ -993,7 +966,7 @@ copy_vhconf_to_example() {
         mkdir -p "$target_dir"
         if [ $? -ne 0 ]; then
             echo "Failed to create target directory '$target_dir'. Exiting."
-            
+            return 1
         fi
     fi
 
@@ -1002,7 +975,7 @@ copy_vhconf_to_example() {
     cp "$source_file" "$target_file"
     if [ $? -ne 0 ]; then
         echo "Failed to copy the file. Exiting."
-        
+        return 1
     fi
    mkdir -p /usr/local/lsws/conf/vhosts/nuopanel 
    cp /root/item/move/conf/nuopanel/vhconf.conf /usr/local/lsws/conf/vhosts/nuopanel/vhconf.conf
@@ -1011,25 +984,24 @@ copy_vhconf_to_example() {
 
 install_all_lsphp_versions() {
     echo "Installing OpenLiteSpeed PHP versions 7.4 to 8.4..."
-sudo ${PACKAGE_MANAGER} search lsphp
+
     # Install software-properties-common if not installed
-    sudo ${PACKAGE_MANAGER} install -y software-properties-common
+    sudo apt-get install -y software-properties-common
 
     # Add the OpenLiteSpeed PHP repository
 
-    # Update package lists
-    #sudo apt-get update
-
+   
     # Install PHP versions from 7.4 to 8.4
     for version in 74 80 81 82 83 84 85; do
         echo "Installing PHP $version..."
-        sudo ${PACKAGE_MANAGER} install -y lsphp"$version" lsphp"$version"-common lsphp"$version"-mysqlnd
-	sudo ${PACKAGE_MANAGER} install -y lsphp"$version"-curl
-
+        sudo apt-get install -y lsphp"$version" lsphp"$version"-common lsphp"$version"-mysql
+        sudo apt-get install -y lsphp"$version"-curl
         # Check if installation was successful
         if [ -x "/usr/local/lsws/lsphp$version/bin/php" ]; then
             echo "PHP $version installed successfully!"
-php_version=$(echo "$version" | awk '{print substr($0,1,1) "." substr($0,2,1)}')
+
+            # Convert version to dotted format (e.g., 74 → 7.4)
+           php_version=$(echo "$version" | awk '{print substr($0,1,1) "." substr($0,2,1)}')
 
             # Define php.ini paths
             ini_file_path="/usr/local/lsws/lsphp$version/etc/php/$php_version/litespeed/php.ini"
@@ -1050,17 +1022,16 @@ php_version=$(echo "$version" | awk '{print substr($0,1,1) "." substr($0,2,1)}')
             sudo sed -i 's/^disable_functions\s*=.*/disable_functions = pcntl_alarm,pcntl_fork,pcntl_waitpid,pcntl_wait,pcntl_wifexited,pcntl_wifstopped,pcntl_wifsignaled,pcntl_wifcontinued,pcntl_wexitstatus,pcntl_wtermsig,pcntl_wstopsig,pcntl_signal,pcntl_signal_get_handler,pcntl_signal_dispatch,pcntl_get_last_error,pcntl_strerror,pcntl_sigprocmask,pcntl_sigwaitinfo,pcntl_sigtimedwait,pcntl_exec,pcntl_getpriority,pcntl_setpriority,pcntl_async_signals,pcntl_unshare/' "$target_ini"
             sudo sed -i 's/^upload_max_filesize\s*=.*/upload_max_filesize = 80M/' "$target_ini"
             sudo sed -i 's/^post_max_size\s*=.*/post_max_size = 80M/' "$target_ini"
+
 	    echo "Updated disable_functions in $target_ini."
+
         else
             echo "PHP $version installation failed."
         fi
     done
-sudo ${PACKAGE_MANAGER} install -y lsphp81-mbstring
-sudo ${PACKAGE_MANAGER} install -y lsphp81-xml
 pkill lsphp
     echo "All requested PHP versions installed."
 }
-
 create_dovecot_cert() {
     CERT_PATH="/etc/dovecot/cert.pem"
     KEY_PATH="/etc/dovecot/key.pem"
@@ -1137,7 +1108,6 @@ fix_dovecot_log_permissions() {
         if [ "$SELINUX_STATUS" = "Enforcing" ]; then
             echo "SELinux is enabled. Checking for possible SELinux denials..."
             ausearch -m avc -ts recent
-	    sudo setenforce 0
             echo "If SELinux is the cause, consider setting it to permissive temporarily: setenforce 0"
         fi
     else
@@ -1147,32 +1117,18 @@ fix_dovecot_log_permissions() {
     echo "Dovecot log permissions fixed successfully!"
 }
 display_success_message() {
-    # Use tput to set colors
-    RED=$(tput setaf 2)  # Green color
-    NC=$(tput sgr0)        # Reset color
-    
-    # Get the IP address (check if hostname -I works, fallback if not)
-    IP=$(hostname -I | awk '{print $1}')
-    if [ -z "$IP" ]; then
-        echo "Failed to retrieve IP address."
-        exit 1
-    fi
-    
-    # Check if port.txt exists and can be read
-    if [ -f /root/item/port.txt ]; then
-        PORT=8443
-    else
-        echo "Port file not found at /root/item/port.txt."
-        exit 1
-    fi
 
-    # Check if db_credentials_panel.txt exists and can be read
-    if [ -f /root/db_credentials_panel.txt ]; then
-        DB_PASSWORDx=$(get_password_from_file "/root/db_credentials_panel.txt")
-    else
-        echo "Database credentials file not found at /root/db_credentials_panel.txt."
-        exit 1
-    fi
+    RED='\033[38;5;83m'
+    NC='\033[0m'	
+    # Get the IP address
+    IP=$(hostname -I | awk '{print $1}')
+    
+    # Get the port from the file
+    PORT=8443
+	DB_PASSWORDx=$(get_password_from_file "/root/db_credentials_panel.txt")
+    
+    # Define the DB password (this can be dynamically set if needed)
+   
     
     # Print success message in green
     echo "${GREEN}You have successfully installed the webhost panel!"
@@ -1182,7 +1138,7 @@ display_success_message() {
 }
 
 install_python_dependencies_in_venv() {
-wget -O ub24req.txt "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/ub24req.txt"
+wget -O ubuntu.txt "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Config/ubuntu.txt"
     echo "Installing Python dependencies from requirements.txt in a virtual environment..."
 
     # Define the virtual environment name
@@ -1203,7 +1159,7 @@ wget -O ub24req.txt "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/ub
     # Upgrade pip and install dependencies
     echo "Upgrading pip and installing packages..."
     "$VENV_DIR/bin/python3" -m pip install --upgrade pip
-    "$VENV_DIR/bin/python3" -m pip install -r ub24req.txt
+    "$VENV_DIR/bin/python3" -m pip install -r ubuntu.txt
 
     # Deactivate the virtual environment
     echo "Deactivating virtual environment..."
@@ -1222,13 +1178,12 @@ install_python_dependencies() {
     # Check if pip3 is installed
     if command -v pip3 &> /dev/null; then
         
+        # Get the Ubuntu version
+        UBUNTU_VERSION=$(lsb_release -rs | cut -d. -f1)
+
+        # If Ubuntu version is 24 or higher, use virtual environment
        
-            # For Ubuntu versions below 24, install packages using pip directly
-            echo "Ubuntu version is below 24. Installing packages directly using pip..."
-            pip3 install -r requirements.txt
-	    pip3 install python-dotenv 
-     pip3 install social-auth-app-django
-     pip3 install bcrypt
+            install_python_dependencies_in_venv
        
         
         # Check if the installation was successful
@@ -1236,96 +1191,50 @@ install_python_dependencies() {
             echo "Python dependencies installed successfully."
         else
             echo "Failed to install Python dependencies. Exiting."
-            # 
+            # exit 1
         fi
     else
         echo "pip3 is not installed. Exiting."
-       # 
+       # exit 1
     fi
 }
 
-replace_python_in_service() {
+replace_python_in_cron_and_service() {
     # Get the Ubuntu version
-       
-    if [[ ("$OS_NAME" == "centos" || "$OS_NAME" == "almalinux") && ("$OS_VERSION" == "7" || "$OS_VERSION" == "8") ]]; then
-        local PYTHON_CMD="/root/.venv/bin/python3.12"
-    else
-        local PYTHON_CMD="/root/.venv/bin/python3"
-    fi
-
-    # File path for the systemd service
-    SERVICE_FILE="/etc/systemd/system/cp.service"
+    UBUNTU_VERSION=$(lsb_release -r | awk '{print $2}' | cut -d '.' -f1)
     
-    # Replace python3 with the virtual environment Python in the systemd service file
-    if [ -f "$SERVICE_FILE" ]; then
-        echo "Updating systemd service to use virtual environment Python..."
-        sed -i "s|/usr/bin/python3|$PYTHON_CMD|g" "$SERVICE_FILE"
-    else
-        echo "Systemd service file not found: $SERVICE_FILE"
-        
-    fi
-
-    # Reload the systemd service to apply the changes
-    echo "Reloading systemd daemon to apply changes..."
-    systemctl daemon-reload
-
-    echo "Successfully updated systemd service to use virtual environment Python."
-}
-
-fix_openssh() {
- if [[ ("$OS_NAME" == "centos" || "$OS_NAME" == "almalinux") && "$OS_VERSION" -ge 9 ]]; then
-  sudo dnf install -y openssh-server
-  sudo systemctl enable sshd
-else
-  echo "no need version"
-fi
-    # Function to reinstall OpenSSH if it fails to start
-    reinstall_openssh() {
-        echo "⚠️ SSHD failed to start. Reinstalling OpenSSH..."
-        sudo dnf remove -y openssh-server openssh-clients openssh
-        sudo dnf install -y openssh-server openssh-clients
-        sudo systemctl restart sshd
-    }
-
-    # Check if openssh-server is installed
-    if ! rpm -q openssh-server &>/dev/null; then
-        echo "📦 OpenSSH is not installed. Installing..."
-        sudo dnf install -y openssh-server
-    else
-        echo "✅ OpenSSH is already installed."
-    fi
-
-    # Start the sshd service if not already running
-    if ! systemctl is-active --quiet sshd; then
-        echo "🚀 SSHD is not running. Attempting to start..."
-        sudo systemctl start sshd
-        
-        # Check if sshd started successfully
-        if ! systemctl is-active --quiet sshd; then
-            reinstall_openssh
-        fi
-    else
-        echo "✅ SSHD is already running."
-    fi
-
-    # Enable SSHD to start on boot
-    sudo systemctl enable sshd
-    echo "✅ SSHD is enabled to start on boot."
-
-    # Final check for SSHD status
-    if systemctl is-active --quiet sshd; then
-        echo "🎉 SSHD is running successfully!"
-    else
-        echo "❌ SSHD failed to start. Check logs with: journalctl -u sshd --no-pager -n 50"
-    fi
-
    
+        VENV_PYTHON="/root/.venv/bin/python"
+        
+        # File paths for cron job and systemd service
+         SERVICE_FILE="/etc/systemd/system/cp.service"
+        
+      
+        
+        # Replace python3 with the virtual environment python in the systemd service file
+        if [ -f "$SERVICE_FILE" ]; then
+            echo "Updating systemd service to use virtual environment Python..."
+            sed -i "s|/usr/bin/python3|$VENV_PYTHON|g" "$SERVICE_FILE"
+        else
+            echo "Systemd service file not found: $SERVICE_FILE"
+        fi
 
+        # Reload the systemd service to apply the changes
+        echo "Reloading systemd daemon to apply changes..."
+        systemctl daemon-reload
+
+        # Restart the service to apply the new Python path
+        echo "Restarting the cp service..."
+        systemctl restart cp.service
+        # REMOVIDO - Agora via django_setup() -         "$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
+	# REMOVIDO - Agora via django_setup() - 	"$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
+        echo "Successfully updated cron job and systemd service to use virtual environment Python."
+   
 }
-
-sudo ${PACKAGE_MANAGER} install -y rsync
 echo "Updating system packages..."
-sudo dnf update -y -q
+sudo apt-get update -qq
+sudo apt-get upgrade -y -qq
+sudo apt-get dist-upgrade -y -qq
 echo ""
 
 disable_kernel_message
@@ -1339,7 +1248,7 @@ if [ ! -d "$PASSWORD_DIR" ]; then
     mkdir -p "$PASSWORD_DIR"
     if [ $? -ne 0 ]; then
         echo "Failed to create directory $PASSWORD_DIR. Exiting."
-        
+        exit 1
     fi
     echo "Directory $PASSWORD_DIR created successfully."
 fi
@@ -1347,14 +1256,13 @@ fi
 # Generate a MariaDB-compatible random password
 PASSWORD=$(generate_mariadb_password)  # Change 16 to your desired password length
 echo "Generated MariaDB-Compatible Password: $PASSWORD"
-DB_PASSWORD=$(get_password_from_file "/root/db_credentials_panel.txt")
 # Save the password to the file
 echo -n "$PASSWORD" > "$PASSWORD_FILE"
 if [ $? -eq 0 ]; then
     echo "Password saved to $PASSWORD_FILE."
 else
     echo "Failed to save password to $PASSWORD_FILE. Exiting."
-    
+    exit 1
 fi
 
 # Set appropriate permissions for the password file
@@ -1363,12 +1271,12 @@ if [ $? -eq 0 ]; then
     echo "Permissions set for $PASSWORD_FILE."
 else
     echo "Failed to set permissions for $PASSWORD_FILE. Exiting."
-    
+    exit 1
 fi
 install_zip_and_tar
 # Suppress "need restart" prompts
 sudo mkdir -p /root/item
-wget -O /root/item/install.zip "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/item/install" 2>/dev/null
+wget -O /root/item/install.zip "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Assets/Configs_Move.zip" 2>/dev/null
 unzip /root/item/install.zip -d /root/item/
 #rm /root/item/install.zip
 
@@ -1384,12 +1292,14 @@ import_database "$PASSWORD" "panel" "/root/item/panel_db.sql"
 
 install_openlitespeed "$(get_password_from_file "/root/db_credentials_panel.txt")" 
 change_ols_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
-#install_python_dependencies
+install_python_dependencies
 
 install_mail_and_ftp_server
 install_powerdns_and_mysql_backend
+install_rspamd_and_redis
 copy_files_and_replace_password "/root/item/move/etc" "/etc" "$(get_password_from_file "/root/db_credentials_panel.txt")"
 generate_pureftpd_ssl_certificate
+configure_rspamd_password
 allow_ports 22 25 53 80 110 143 443 465 587 993 995 7080 3306 5353 6379 21 223 155 220 2205
 copy_files_and_replace_password "/root/item/move/html" "/usr/local/lsws/Example/html" "$(get_password_from_file "/root/db_credentials_panel.txt")"
 
@@ -1401,9 +1311,12 @@ remove_files_in_html_folder
 unzip_and_move
 setup_cp_service_with_port
 set_ownership_and_permissions
-
 copy_vhconf_to_example
 copy_mysql_password
+# ============================================================
+# DJANGO SETUP - CHAMADA PRINCIPAL
+# ============================================================
+django_setup
 install_all_lsphp_versions
 create_dovecot_cert
 create_vmail_user
@@ -1411,23 +1324,14 @@ fix_dovecot_log_permissions
 copy_conf_for_ols
 cp /etc/resolv.conf /var/spool/postfix/etc/resolv.conf
 cp /root/item/move/conf/nuopanel.sh /etc/profile.d
-install_pip
-if [[ ("$OS_NAME" == "centos" || "$OS_NAME" == "almalinux") && ("$OS_VERSION" == "7" || "$OS_VERSION" == "8") ]]; then
-        /root/.venv/bin/python3.12 /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
-    else
-        /root/.venv/bin/python3 /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
-    fi
-
+# REMOVIDO - Agora via django_setup() - /root/.venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
 add_backup_cronjobs
-sudo ${PACKAGE_MANAGER} install perl-libwww-perl -y
-sudo ${PACKAGE_MANAGER} install perl-CGI -y
+sudo apt-get install libwww-perl -y
 sudo systemctl stop systemd-resolved >/dev/null 2>&1
 sudo systemctl disable systemd-resolved >/dev/null 2>&1
 systemctl restart systemd-networkd >/dev/null 2>&1
 sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data
 sudo chmod -R 755 /usr/local/lsws/Example/html/webmail/data
-echo -n "$OS_NAME" > /usr/local/lsws/Example/html/nuopanel/etc/osName
-echo -n "$OS_VERSION" > /usr/local/lsws/Example/html/nuopanel/etc/osVersion
 sudo postmap /etc/postfix/script_filter
 sudo postmap /etc/postfix/vmail_ssl.map
 mkdir -p /etc/opendkim
@@ -1435,68 +1339,27 @@ mkdir -p /etc/opendkim
 sudo touch /etc/opendkim/key.table
 sudo touch /etc/opendkim/signing.table
 sudo touch /etc/opendkim/TrustedHosts.table
-path_to_check="/usr/lib/postfix/sbin"
-path_to_checkmaster="/usr/lib/dovecot/deliver"
-path_to_mysql="/var/run/mysqld/"
-# Check if the directory or file /usr/libexec/postfix/sbin exists
-if [ ! -e "$path_to_mysql" ]; then
- 
-  sudo sed -i 's|/var/run/mysqld/mysqld.sock|/var/lib/mysql/mysql.sock|g' /etc/pure-ftpd/db/mysql.conf
- 
-else
-  echo "$path_to_mysql already exists."
-fi
-  
-# Check if the directory or file /usr/libexec/postfix/sbin exists
-if [ ! -e "$path_to_check" ]; then
-  echo "$path_to_check does not exist. Proceeding to update /etc/postfix/main.cf..."
-  
-  # Run the sed command to update the path in /etc/postfix/main.cf
-  sudo sed -i 's|/usr/lib/postfix/sbin|/usr/libexec/postfix|g' /etc/postfix/main.cf
- 
-else
-  echo "$path_to_check already exists. No need to update /etc/postfix/main.cf."
-fi
-
-if [ ! -e "$path_to_checkmaster" ]; then
-  echo "$path_to_checkmaster does not exist. Proceeding to update /etc/postfix/master.cf..."
-  
-  # Run the sed command to update the path in /etc/postfix/master.cf
-  sudo sed -i 's|/usr/lib/dovecot/deliver|/usr/libexec/dovecot/deliver|g' /etc/postfix/master.cf
- 
-else
-  echo "$path_to_checkmaster already exists. No need to update /etc/postfix/main.cf."
-fi
-
-fix_openssh
-
-# Enable sshd to start on boot
-sudo systemctl enable sshd
-echo "sshd is enabled to start on boot."
-replace_python_in_service
-IP=$(ip=$(hostname -I | awk '{print $1}'); if [[ $ip == 10.* || $ip == 172.* || $ip == 192.168.* ]]; then ip=$(curl -m 10 -s ifconfig.me); [[ -z $ip ]] && ip=$(hostname -I | awk '{print $1}'); fi; echo $ip)
+echo -n "$OS_NAME" > /usr/local/lsws/Example/html/nuopanel/etc/osName
+echo -n "$OS_VERSION" > /usr/local/lsws/Example/html/nuopanel/etc/osVersion
+IP=$(ip=$(hostname -I | awk '{print $1}'); if [ "$ip" != "${ip#10.}" ] || [ "$ip" != "${ip#172.}" ] || [ "$ip" != "${ip#192.168.}" ]; then ip=$(curl -4 -m 10 -s ifconfig.me); [ -z "$ip" ] && ip=$(hostname -I | awk '{print $1}'); fi; echo $ip)
 echo "$IP" | sudo tee /etc/pure-ftpd/conf/ForcePassiveIP > /dev/null
-curl -sSL https://nuopanel.com/extra/re_config.sh | sed 's/\r$//' | bash
+curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/re_config.sh | sed 's/\r$//' | bash
+curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/setup_missing_ssl_file.sh | sed 's/\r$//' | bash
 sleep 3
 sudo systemctl restart pdns
 sudo systemctl restart postfix
 sudo systemctl restart dovecot
-sudo systemctl restart pure-ftpd
+sudo systemctl restart pure-ftpd-mysql
 sudo systemctl restart opendkim
 sudo systemctl restart cp
+replace_python_in_cron_and_service
 sudo /usr/local/lsws/bin/lswsctrl restart
-curl -sSL https://nuopanel.com/extra/swap.sh | sed 's/\r$//' | bash
-curl -sSL https://nuopanel.com/extra/database_update.sh | sed 's/\r$//' | bash
-curl -sSL https://nuopanel.com/olsapp/install.sh | sed 's/\r$//' | bash
-if [[ ("$OS_NAME" == "centos" || "$OS_NAME" == "almalinux") && ("$OS_VERSION" == "7" || "$OS_VERSION" == "8") ]]; then
-        /root/.venv/bin/python3.12 /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
-    else
-        /root/.venv/bin/python3 /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
-    fi
-
+curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/swap.sh | sed 's/\r$//' | bash
+curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/database_update.sh | sed 's/\r$//' | bash
+curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/install.sh | sed 's/\r$//' | bash
+# REMOVIDO - Agora via django_setup() - /root/.venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
 display_success_message
 sudo rm -rf /root/item
 sudo rm -f /root/item/mysqlPassword
 sudo rm -f /root/db_credentials_panel.txt
 sudo rm -f /root/webadmin
-

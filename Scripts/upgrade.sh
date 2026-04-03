@@ -1,137 +1,139 @@
 #!/bin/bash
+# NuoPanel Simple Upgrade Script v1.0
 
-# NuoPanel Upgrade Script
-# This script updates the panel to the latest version
-
-set -e  # Exit on error
+set -e
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 echo -e "${GREEN}=========================================="
-echo "NuoPanel Upgrade Script"
+echo "NuoPanel Upgrade Script v3.1"
 echo "==========================================${NC}"
 
 # Detect project directory
-HOME_PATH_FILE="/etc/nuopanel/base_dir"
-if [ -f "$HOME_PATH_FILE" ]; then
-    PROJECT_DIR="$(cat "$HOME_PATH_FILE")"
+if [ -f "/etc/nuopanel/base_dir" ]; then
+    PROJECT_DIR="$(cat /etc/nuopanel/base_dir)"
 else
     PROJECT_DIR="/usr/local/lsws/Example/html/nuopanel"
 fi
 
-PARENT_DIR="${PROJECT_DIR%/*}"
 BACKUP_DIR="/root/nuopanel_backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+TEMP_DIR="/tmp/nuopanel_update_$TIMESTAMP"
 
-echo -e "${YELLOW}Project directory: $PROJECT_DIR${NC}"
+echo -e "${YELLOW}Project: $PROJECT_DIR${NC}"
 echo ""
 
-# Step 1: Create backup
-echo -e "${GREEN}Step 1: Creating backup...${NC}"
+# Step 1: Backup
+echo -e "${GREEN}[1/7] Creating backup...${NC}"
 mkdir -p "$BACKUP_DIR"
-tar -czf "$BACKUP_DIR/nuopanel_backup_$TIMESTAMP.tar.gz" -C "$PARENT_DIR" nuopanel/ 2>/dev/null || true
-echo -e "${GREEN}✅ Backup created: $BACKUP_DIR/nuopanel_backup_$TIMESTAMP.tar.gz${NC}"
+
+tar -czf "$BACKUP_DIR/backup_$TIMESTAMP.tar.gz" \
+    "$PROJECT_DIR" \
+    /usr/local/lsws/Example/html/phpmyadmin \
+    2>/dev/null || true
+
+echo -e "      OK Backup created"
 echo ""
 
 # Step 2: Download update
-echo -e "${GREEN}Step 2: Downloading update...${NC}"
-UPDATE_URL="https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Assets/panel_setup.zip"
-DOWNLOAD_PATH="$PARENT_DIR/panel_setup_update.zip"
+echo -e "${GREEN}[2/7] Downloading update...${NC}"
 
-wget -O "$DOWNLOAD_PATH" "$UPDATE_URL?t=$(date +%s)" --no-cache --no-cookies
+UPDATE_URL="https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Assets/panel_update.zip"
 
-if [ ! -f "$DOWNLOAD_PATH" ]; then
-    echo -e "${RED}❌ Failed to download update file!${NC}"
+wget -q -O /tmp/panel_update.zip "$UPDATE_URL?t=$(date +%s)"
+
+if [ ! -f /tmp/panel_update.zip ]; then
+    echo -e "${RED}Download failed${NC}"
     exit 1
 fi
-echo -e "${GREEN}✅ Update downloaded${NC}"
+
+echo -e "      OK Downloaded"
 echo ""
 
-# Step 3: Extract update (preserve database and config)
-echo -e "${GREEN}Step 3: Extracting update...${NC}"
+# Step 3: Extract
+echo -e "${GREEN}[3/7] Extracting update...${NC}"
 
-# Create temp extraction directory
-TEMP_DIR="$PARENT_DIR/panel_update_temp"
-mkdir -p "$TEMP_DIR"
-unzip -o "$DOWNLOAD_PATH" -d "$TEMP_DIR" > /dev/null
-
-# Move extracted content to project directory (preserve sensitive files)
-echo -e "${YELLOW}Updating files (preserving database and configs)...${NC}"
-
-# Preserve these files/dirs
-PRESERVE=(
-    "db.sqlite3"
-    "etc/mysqlPassword"
-    "etc/version"
-    "etc/ip"
-    "etc/osName"
-    "etc/osVersion"
-    "etc/conf.ini"
-    "media/uploads"
-    "logs"
-)
-
-# Copy all files from temp to project, then restore preserved files
-rsync -a --exclude-from=<(printf '%s\n' "${PRESERVE[@]}") "$TEMP_DIR/nuopanel/" "$PROJECT_DIR/"
-
-# Cleanup temp
 rm -rf "$TEMP_DIR"
-rm -f "$DOWNLOAD_PATH"
+mkdir -p "$TEMP_DIR"
 
-echo -e "${GREEN}✅ Files updated${NC}"
+unzip -q /tmp/panel_update.zip -d "$TEMP_DIR"
+
+echo -e "      OK Extracted to $TEMP_DIR"
 echo ""
 
-# Step 4: Run Django migrations
-echo -e "${GREEN}Step 4: Running database migrations...${NC}"
+# Step 4: Apply update
+echo -e "${GREEN}[4/7] Applying update...${NC}"
+
+rsync -a \
+--exclude='usr/local/lsws/Example/html/nuopanel/etc/mysqlPassword' \
+--exclude='usr/local/lsws/Example/html/nuopanel/etc/ip' \
+--exclude='usr/local/lsws/Example/html/nuopanel/etc/osName' \
+--exclude='usr/local/lsws/Example/html/nuopanel/etc/osVersion' \
+--exclude='usr/local/lsws/Example/html/nuopanel/etc/conf.ini' \
+--exclude='usr/local/lsws/Example/html/nuopanel/db.sqlite3' \
+--exclude='usr/local/lsws/Example/html/nuopanel/media/uploads/**' \
+--exclude='usr/local/lsws/Example/html/nuopanel/logs/**' \
+--exclude='usr/local/lsws/Example/html/phpmyadmin/config.inc.php' \
+--exclude='usr/local/lsws/Example/html/nuopanel/3rdparty/roundcube/config/config.inc.php' \
+--exclude='usr/local/lsws/Example/html/nuopanel/3rdparty/rainloop/data/**' \
+"$TEMP_DIR/" /
+
+echo -e "      OK Files updated"
+echo ""
+
+# Step 5: Fix permissions
+echo -e "${GREEN}[5/7] Fixing permissions...${NC}"
+
+chown -R www-data:www-data "$PROJECT_DIR"
+chmod -R 755 "$PROJECT_DIR"
+
+echo -e "      OK Permissions fixed"
+echo ""
+
+# Step 6: Database migrations
+echo -e "${GREEN}[6/7] Running migrations...${NC}"
 
 PYTHON_PATH="/root/.venv/bin/python"
+
 if [ ! -x "$PYTHON_PATH" ]; then
     PYTHON_PATH=$(which python3)
 fi
 
 cd "$PROJECT_DIR"
-$PYTHON_PATH manage.py migrate --fake-initial 2>&1 | grep -v "No migrations to apply" || true
-echo -e "${GREEN}✅ Migrations completed${NC}"
+
+$PYTHON_PATH manage.py migrate \
+2>&1 | grep -E "Applying|Operations|WARNINGS" || echo "No migrations needed"
+
+echo -e "      OK Migrations completed"
 echo ""
 
-# Step 5: Run database_update.sh
-echo -e "${GREEN}Step 5: Running database updates...${NC}"
-curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/database_update.sh | bash
-echo ""
+# Step 7: Restart services
+echo -e "${GREEN}[7/7] Restarting services...${NC}"
 
-# Step 6: Update version file
-echo -e "${GREEN}Step 6: Fetching latest version...${NC}"
-LATEST_VERSION=$(curl -s https://raw.githubusercontent.com/SolusTec/NuoPanel/main/version.txt)
-if [ -n "$LATEST_VERSION" ]; then
-    echo "$LATEST_VERSION" > "$PROJECT_DIR/etc/version"
-    echo -e "${GREEN}✅ Version updated to: $LATEST_VERSION${NC}"
-else
-    echo -e "${YELLOW}⚠️  Could not fetch version, keeping current${NC}"
-fi
-echo ""
-
-# Step 7: Set permissions
-echo -e "${GREEN}Step 7: Setting permissions...${NC}"
-chown -R www-data:www-data "$PROJECT_DIR"
-chmod -R 755 "$PROJECT_DIR"
-echo -e "${GREEN}✅ Permissions set${NC}"
-echo ""
-
-# Step 8: Restart services
-echo -e "${GREEN}Step 8: Restarting services...${NC}"
 systemctl restart cp 2>/dev/null || true
+sleep 2
+
 /usr/local/lsws/bin/lswsctrl restart 2>/dev/null || true
-echo -e "${GREEN}✅ Services restarted${NC}"
+
+echo -e "      OK Services restarted"
 echo ""
 
-echo -e "${GREEN}=========================================="
-echo "✅ NuoPanel upgrade completed successfully!"
-echo "==========================================${NC}"
+# Cleanup
+rm -rf "$TEMP_DIR"
+rm -f /tmp/panel_update.zip
+
+NEW_VERSION=$(cat "$PROJECT_DIR/etc/version" 2>/dev/null || echo "unknown")
+
 echo ""
-echo -e "Backup location: ${YELLOW}$BACKUP_DIR/nuopanel_backup_$TIMESTAMP.tar.gz${NC}"
+echo -e "${GREEN}=========================================="
+echo "Update Completed Successfully"
+echo "==========================================${NC}"
+
+echo -e "Version: ${GREEN}$NEW_VERSION${NC}"
+echo -e "Backup: ${YELLOW}$BACKUP_DIR/backup_$TIMESTAMP.tar.gz${NC}"
 echo ""
 
 exit 0

@@ -17,7 +17,6 @@ elif [ -f /etc/centos-release ]; then
     OS_NAME="centos"
     OS_VERSION=$(awk '{print $4}' /etc/centos-release | cut -d. -f1)  # Remove decimal part
 fi
-
 install_sudo() {
     # Check if sudo is installed
     if ! command -v sudo &> /dev/null; then
@@ -80,26 +79,23 @@ install_pip() {
     sudo apt update && sudo apt upgrade -y
     echo "Installing Python..."
     wait_for_apt_lock
-    sudo apt install -y python3 python3-venv python3-pip pkg-config
-    sudo apt install -y libmariadb-dev
-    sudo apt install -y build-essential python3-dev default-libmysqlclient-dev pkg-config gcc
-	sudo apt install -y libmariadb-dev-compat
-    # Check Ubuntu version and use virtual environment if Ubuntu 24.04+
-if [ "$OS_NAME" = "debian" ] && [ "$OS_VERSION" -ge 11 ]; then
+    sudo apt install python3 python3-venv python3-pip pkg-config libmysqlclient-dev -y
     
+    # Check Ubuntu version and use virtual environment if Ubuntu 24.04+
+
         echo "Creating virtual environment for Python dependencies..."
         python3 -m venv /root/.venv
-        source /root/.venv/bin/activate
-    fi
+        . /root/.venv/bin/activate
+   
     
     echo "Upgrading pip and setuptools..."
     pip install --upgrade pip setuptools
     echo "Installing mysqlclient..."
     pip install --no-binary :all: mysqlclient
     
-    if [ "$OS_NAME" = "debian" ] && [ "$OS_VERSION" -ge 11 ]; then
-        deactivate
-    fi
+    
+    deactivate
+  
     
     echo "Python and pip setup completed!"
 }
@@ -329,6 +325,71 @@ install_powerdns_and_mysql_backend() {
     fi
 
     echo "PowerDNS installation and configuration completed successfully!"
+
+install_rspamd_and_redis() {
+    echo "Installing Rspamd and Redis..."
+    
+    # 1. Adicionar repositório oficial do Rspamd
+    apt install -y lsb-release wget gpg
+    CODENAME=$(lsb_release -c -s)
+    wget -O- https://rspamd.com/apt-stable/gpg.key | gpg --dearmor > /usr/share/keyrings/rspamd.gpg
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/rspamd.gpg] http://rspamd.com/apt-stable/ $CODENAME main" > /etc/apt/sources.list.d/rspamd.list
+    
+    # 2. Atualizar lista de pacotes
+    apt update
+    
+    # 3. Instalar Rspamd e Redis
+    apt install -y rspamd redis-server
+    
+    # 4. Verificar instalação
+    if [ $? -ne 0 ]; then
+        echo "Failed to install Rspamd or Redis. Exiting."
+        exit 1
+    fi
+    
+    # 5. Habilitar serviços
+    systemctl enable rspamd
+    systemctl enable redis-server
+    
+    echo "Rspamd and Redis installed successfully."
+}
+
+configure_rspamd_password() {
+    echo "Configuring Rspamd password..."
+    
+    # 1. Definir senha padrão
+    PASSWORD="nuopanel2026"
+    
+    # 2. Gerar hash usando rspamadm
+    HASH=$(rspamadm pw --encrypt -p "$PASSWORD")
+    
+    if [ $? -ne 0 ]; then
+        echo "Failed to generate Rspamd password hash. Exiting."
+        exit 1
+    fi
+    
+    # 3. Substituir placeholder no arquivo de configuração
+    sed -i "s/%rspamd_password_hash%/$HASH/g" /etc/rspamd/local.d/worker-controller.inc
+    
+    # 4. Definir permissões corretas
+    chmod 644 /etc/rspamd/*.map
+    chmod 644 /etc/rspamd/local.d/*.conf
+    chmod 644 /etc/rspamd/local.d/*.inc
+    
+    # 5. Testar configuração
+    rspamadm configtest
+    
+    if [ $? -ne 0 ]; then
+        echo "Rspamd configuration test failed."
+        exit 1
+    fi
+    
+    # 6. Iniciar/reiniciar Rspamd
+    systemctl restart rspamd
+    systemctl restart redis-server
+    
+    echo "Rspamd configured. WebUI Password: $PASSWORD"
+}
 }
 copy_files_and_replace_password() {
     local SOURCE_DIR="$1"
@@ -411,12 +472,12 @@ copy_files_and_replace_password() {
     sudo chmod -R 700 /home/vmail
 
     # Set ownership to root and postfix
-   # sudo chown root:postfix /etc/letsencrypt/live/mail.example.com/privkey.pem
-   # sudo chown root:postfix /etc/letsencrypt/live/mail.example.com/fullchain.pem
+   # sudo chown root:postfix /etc/letsencrypt/live/mail.chandpurtelecom.xyz/privkey.pem
+   # sudo chown root:postfix /etc/letsencrypt/live/mail.chandpurtelecom.xyz/fullchain.pem
 
     # Set permissions
-   # sudo chmod 640 /etc/letsencrypt/live/mail.example.com/privkey.pem
-   # sudo chmod 644 /etc/letsencrypt/live/mail.example.com/fullchain.pem
+   # sudo chmod 640 /etc/letsencrypt/live/mail.chandpurtelecom.xyz/privkey.pem
+   # sudo chmod 644 /etc/letsencrypt/live/mail.chandpurtelecom.xyz/fullchain.pem
 }
 
 generate_pureftpd_ssl_certificate() {
@@ -539,7 +600,7 @@ change_ols_password() {
 copy_conf_for_ols() {
     # Define the source and target directories
     local SSL_SOURCE_DIR="/root/item/move/conf/ssl"
-    local SSL_TARGET_DIR="/etc/letsencrypt/live/example.com"
+    local SSL_TARGET_DIR="/etc/letsencrypt/live/chandpurtelecom.xyz"
     local HTTPD_CONFIG_SOURCE="/root/item/move/conf/httpd_config.conf"
     local HTTPD_CONFIG_TARGET="/usr/local/lsws/conf/httpd_config.conf"
     local SERVER_IP=$(curl -4 ifconfig.me)
@@ -572,20 +633,18 @@ copy_conf_for_ols() {
     echo "Copying httpd config file '$HTTPD_CONFIG_SOURCE' to '$HTTPD_CONFIG_TARGET'..."
     cp -v "$HTTPD_CONFIG_SOURCE" "$HTTPD_CONFIG_TARGET"
 	sudo systemctl restart openlitespeed
-        # sudo chown root:postfix /etc/letsencrypt/live/mail.example.com/privkey.pem
-        # sudo chown root:postfix /etc/letsencrypt/live/mail.example.com/fullchain.pem
+        # sudo chown root:postfix /etc/letsencrypt/live/mail.chandpurtelecom.xyz/privkey.pem
+        # sudo chown root:postfix /etc/letsencrypt/live/mail.chandpurtelecom.xyz/fullchain.pem
 
     # Set permissions
-      # sudo chmod 640 /etc/letsencrypt/live/mail.example.com/privkey.pem
-      # sudo chmod 644 /etc/letsencrypt/live/mail.example.com/fullchain.pem
+      # sudo chmod 640 /etc/letsencrypt/live/mail.chandpurtelecom.xyz/privkey.pem
+      # sudo chmod 644 /etc/letsencrypt/live/mail.chandpurtelecom.xyz/fullchain.pem
     echo "Copy operation completed."
 }
 
 allow_ports() {
+sudo apt install bind9-dnsutils -y
 sudo apt install ufw -y
-sudo systemctl stop nftables
-sudo systemctl disable nftables
-sudo systemctl mask nftables
 sudo systemctl enable ufw
 sudo systemctl start ufw
 echo "y" | sudo ufw enable
@@ -614,7 +673,7 @@ echo "y" | sudo ufw enable
     sudo iptables -A OUTPUT -p tcp --dport 40110:40210 -j ACCEPT
     echo "Allowed 40110:40210/tcp through both UFW and iptables."
 
-sudo ufw allow 53/udp
+    sudo ufw allow 53/udp
     sudo ufw reload
     echo "UFW rules reloaded."
 
@@ -653,7 +712,7 @@ install_acme_sh() {
 }
 unzip_and_move() {
 
-    wget -O /root/item/panel_setup.zip "https://nuopanel.com/panel_setup.zip"
+    wget -O /root/item/panel_setup.zip "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Assets/panel_setup.zip"
     local zip_file="/root/item/panel_setup.zip"
     local extract_dir="/root/item/cp"
     local target_dir="/usr/local/lsws/Example/html"
@@ -790,6 +849,42 @@ copy_mysql_password() {
     echo "File copied successfully from '$source_file' to '$target_file'."
 }
 
+django_setup() {
+    echo "============================================================"
+    echo "DJANGO SETUP - CRITICAL SECTION"
+    echo "============================================================"
+    
+    # 1. Criar arquivo time.zone obrigatório
+    echo "Creating time.zone file..."
+    touch /usr/local/lsws/Example/html/nuopanel/etc/time.zone
+    
+    # 2. Aplicar migrations Django
+    echo "Applying Django migrations..."
+    . /root/.venv/bin/activate
+    cd /usr/local/lsws/Example/html/nuopanel
+    
+    # Marcar migration 0005 como aplicada (tabelas já existem no panel_db.sql)
+    /root/.venv/bin/python manage.py migrate --fake users 0005
+    
+    # Aplicar demais migrations
+    /root/.venv/bin/python manage.py migrate
+    
+    # 3. Resetar senha do admin
+    echo "Setting admin password..."
+    /root/.venv/bin/python manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
+    
+    # 4. Instalar OLSApp
+    echo "Installing OLSApp..."
+    /root/.venv/bin/python manage.py install_olsapp
+    
+    deactivate
+    cd -
+    
+    echo "Django setup completed!"
+    
+    # Reiniciar serviço cp
+    sudo systemctl restart cp
+}
 set_ownership_and_permissions() {
     sudo chown -R www-data:www-data /usr/local/lsws/Example/html/phpmyadmin 
     sudo chmod -R 755 /usr/local/lsws/Example/html/phpmyadmin 
@@ -806,7 +901,7 @@ set_ownership_and_permissions() {
     echo "Ownership and permissions set successfully for all specified directories."
 }
 add_backup_cronjobs() {
-    local PYTHON_CMD=$(which python3)
+    local PYTHON_CMD="/root/.venv/bin/python"
     local BACKUP_SCRIPT="/usr/local/lsws/Example/html/nuopanel/manage.py"
 
     # Define the cron jobs
@@ -900,14 +995,13 @@ install_all_lsphp_versions() {
     for version in 74 80 81 82 83 84 85; do
         echo "Installing PHP $version..."
         sudo apt-get install -y lsphp"$version" lsphp"$version"-common lsphp"$version"-mysql
-	sudo apt-get install -y lsphp"$version"-curl
-
+        sudo apt-get install -y lsphp"$version"-curl
         # Check if installation was successful
         if [ -x "/usr/local/lsws/lsphp$version/bin/php" ]; then
             echo "PHP $version installed successfully!"
 
             # Convert version to dotted format (e.g., 74 → 7.4)
-            php_version=$(echo "$version" | awk '{print substr($0,1,1) "." substr($0,2,1)}')
+           php_version=$(echo "$version" | awk '{print substr($0,1,1) "." substr($0,2,1)}')
 
             # Define php.ini paths
             ini_file_path="/usr/local/lsws/lsphp$version/etc/php/$php_version/litespeed/php.ini"
@@ -928,6 +1022,7 @@ install_all_lsphp_versions() {
             sudo sed -i 's/^disable_functions\s*=.*/disable_functions = pcntl_alarm,pcntl_fork,pcntl_waitpid,pcntl_wait,pcntl_wifexited,pcntl_wifstopped,pcntl_wifsignaled,pcntl_wifcontinued,pcntl_wexitstatus,pcntl_wtermsig,pcntl_wstopsig,pcntl_signal,pcntl_signal_get_handler,pcntl_signal_dispatch,pcntl_get_last_error,pcntl_strerror,pcntl_sigprocmask,pcntl_sigwaitinfo,pcntl_sigtimedwait,pcntl_exec,pcntl_getpriority,pcntl_setpriority,pcntl_async_signals,pcntl_unshare/' "$target_ini"
             sudo sed -i 's/^upload_max_filesize\s*=.*/upload_max_filesize = 80M/' "$target_ini"
             sudo sed -i 's/^post_max_size\s*=.*/post_max_size = 80M/' "$target_ini"
+
 	    echo "Updated disable_functions in $target_ini."
 
         else
@@ -1043,7 +1138,7 @@ display_success_message() {
 }
 
 install_python_dependencies_in_venv() {
-wget -O ub24req.txt "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/ub24req.txt"
+wget -O ubuntu.txt "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Config/ubuntu.txt"
     echo "Installing Python dependencies from requirements.txt in a virtual environment..."
 
     # Define the virtual environment name
@@ -1064,7 +1159,7 @@ wget -O ub24req.txt "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/ub
     # Upgrade pip and install dependencies
     echo "Upgrading pip and installing packages..."
     "$VENV_DIR/bin/python3" -m pip install --upgrade pip
-    "$VENV_DIR/bin/python3" -m pip install -r ub24req.txt
+    "$VENV_DIR/bin/python3" -m pip install -r ubuntu.txt
 
     # Deactivate the virtual environment
     echo "Deactivating virtual environment..."
@@ -1087,13 +1182,9 @@ install_python_dependencies() {
         UBUNTU_VERSION=$(lsb_release -rs | cut -d. -f1)
 
         # If Ubuntu version is 24 or higher, use virtual environment
-        if [ "$OS_NAME" = "debian" ] && [ "$OS_VERSION" -ge 11 ]; then
+       
             install_python_dependencies_in_venv
-        else
-            # For Ubuntu versions below 24, install packages using pip directly
-            echo "Ubuntu version is below 24. Installing packages directly using pip..."
-            pip install -r requirements.txt
-        fi
+       
         
         # Check if the installation was successful
         if [ $? -eq 0 ]; then
@@ -1112,22 +1203,13 @@ replace_python_in_cron_and_service() {
     # Get the Ubuntu version
     UBUNTU_VERSION=$(lsb_release -r | awk '{print $2}' | cut -d '.' -f1)
     
-    # Only proceed if the Ubuntu version is 24 or higher
-    if [ "$OS_NAME" = "debian" ] && [ "$OS_VERSION" -ge 11 ]; then
-        # Path to the virtual environment python
+   
         VENV_PYTHON="/root/.venv/bin/python"
         
         # File paths for cron job and systemd service
-        CRON_FILE="/var/spool/cron/crontabs/root"
-        SERVICE_FILE="/etc/systemd/system/cp.service"
+         SERVICE_FILE="/etc/systemd/system/cp.service"
         
-        # Replace python3 with the virtual environment python in the cron job
-        if [ -f "$CRON_FILE" ]; then
-            echo "Updating cron job to use virtual environment Python..."
-            sed -i "s|/usr/bin/python3|$VENV_PYTHON|g" "$CRON_FILE"
-        else
-            echo "Cron job file not found: $CRON_FILE"
-        fi
+      
         
         # Replace python3 with the virtual environment python in the systemd service file
         if [ -f "$SERVICE_FILE" ]; then
@@ -1144,12 +1226,10 @@ replace_python_in_cron_and_service() {
         # Restart the service to apply the new Python path
         echo "Restarting the cp service..."
         systemctl restart cp.service
-        "$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
-	"$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
+        # REMOVIDO - Agora via django_setup() -         "$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
+	# REMOVIDO - Agora via django_setup() - 	"$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
         echo "Successfully updated cron job and systemd service to use virtual environment Python."
-    else
-        echo "Ubuntu version is lower than 24. No changes were made."
-    fi
+   
 }
 echo "Updating system packages..."
 sudo apt-get update -qq
@@ -1159,9 +1239,6 @@ echo ""
 
 disable_kernel_message
 # Directory to save the password
-
-sudo apt install unzip -y
-
 PASSWORD_DIR="/root/item"
 PASSWORD_FILE="$PASSWORD_DIR/mysqlPassword"
 
@@ -1179,7 +1256,6 @@ fi
 # Generate a MariaDB-compatible random password
 PASSWORD=$(generate_mariadb_password)  # Change 16 to your desired password length
 echo "Generated MariaDB-Compatible Password: $PASSWORD"
-DB_PASSWORD=$(get_password_from_file "/root/db_credentials_panel.txt")
 # Save the password to the file
 echo -n "$PASSWORD" > "$PASSWORD_FILE"
 if [ $? -eq 0 ]; then
@@ -1200,7 +1276,7 @@ fi
 install_zip_and_tar
 # Suppress "need restart" prompts
 sudo mkdir -p /root/item
-wget -O /root/item/install.zip "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/item/install" 2>/dev/null
+wget -O /root/item/install.zip "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Assets/Configs_Move.zip" 2>/dev/null
 unzip /root/item/install.zip -d /root/item/
 #rm /root/item/install.zip
 
@@ -1213,15 +1289,17 @@ install_mariadb "$PASSWORD"
 change_mysql_root_password "$PASSWORD"
 create_database_and_user "$PASSWORD" "panel" "panel"
 import_database "$PASSWORD" "panel" "/root/item/panel_db.sql"
-install_pip
+
 install_openlitespeed "$(get_password_from_file "/root/db_credentials_panel.txt")" 
 change_ols_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
 install_python_dependencies
 
 install_mail_and_ftp_server
 install_powerdns_and_mysql_backend
+install_rspamd_and_redis
 copy_files_and_replace_password "/root/item/move/etc" "/etc" "$(get_password_from_file "/root/db_credentials_panel.txt")"
 generate_pureftpd_ssl_certificate
+configure_rspamd_password
 allow_ports 22 25 53 80 110 143 443 465 587 993 995 7080 3306 5353 6379 21 223 155 220 2205
 copy_files_and_replace_password "/root/item/move/html" "/usr/local/lsws/Example/html" "$(get_password_from_file "/root/db_credentials_panel.txt")"
 
@@ -1235,6 +1313,10 @@ setup_cp_service_with_port
 set_ownership_and_permissions
 copy_vhconf_to_example
 copy_mysql_password
+# ============================================================
+# DJANGO SETUP - CHAMADA PRINCIPAL
+# ============================================================
+django_setup
 install_all_lsphp_versions
 create_dovecot_cert
 create_vmail_user
@@ -1242,7 +1324,7 @@ fix_dovecot_log_permissions
 copy_conf_for_ols
 cp /etc/resolv.conf /var/spool/postfix/etc/resolv.conf
 cp /root/item/move/conf/nuopanel.sh /etc/profile.d
-python3 /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
+# REMOVIDO - Agora via django_setup() - /root/.venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
 add_backup_cronjobs
 sudo apt-get install libwww-perl -y
 sudo systemctl stop systemd-resolved >/dev/null 2>&1
@@ -1257,11 +1339,12 @@ mkdir -p /etc/opendkim
 sudo touch /etc/opendkim/key.table
 sudo touch /etc/opendkim/signing.table
 sudo touch /etc/opendkim/TrustedHosts.table
-echo -n "$OS_NAME" > /usr/local/lsws/Example/html/nuopanel/etc//osName
+echo -n "$OS_NAME" > /usr/local/lsws/Example/html/nuopanel/etc/osName
 echo -n "$OS_VERSION" > /usr/local/lsws/Example/html/nuopanel/etc/osVersion
-IP=$(ip=$(hostname -I | awk '{print $1}'); case "$ip" in 10.*|172.*|192.168.*) ip=$(curl -4 -m 10 -s ifconfig.me); [ -z "$ip" ] && ip=$(hostname -I | awk '{print $1}');; esac; echo $ip)
+IP=$(ip=$(hostname -I | awk '{print $1}'); if [ "$ip" != "${ip#10.}" ] || [ "$ip" != "${ip#172.}" ] || [ "$ip" != "${ip#192.168.}" ]; then ip=$(curl -4 -m 10 -s ifconfig.me); [ -z "$ip" ] && ip=$(hostname -I | awk '{print $1}'); fi; echo $ip)
 echo "$IP" | sudo tee /etc/pure-ftpd/conf/ForcePassiveIP > /dev/null
-curl -sSL https://nuopanel.com/extra/re_config.sh | sed 's/\r$//' | bash
+curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/re_config.sh | sed 's/\r$//' | bash
+curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/setup_missing_ssl_file.sh | sed 's/\r$//' | bash
 sleep 3
 sudo systemctl restart pdns
 sudo systemctl restart postfix
@@ -1271,10 +1354,10 @@ sudo systemctl restart opendkim
 sudo systemctl restart cp
 replace_python_in_cron_and_service
 sudo /usr/local/lsws/bin/lswsctrl restart
-curl -sSL https://nuopanel.com/extra/swap.sh | sed 's/\r$//' | bash
-curl -sSL https://nuopanel.com/extra/database_update.sh | sed 's/\r$//' | bash
-curl -sSL https://nuopanel.com/olsapp/install.sh | sed 's/\r$//' | bash
-python3 /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
+curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/swap.sh | sed 's/\r$//' | bash
+curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/database_update.sh | sed 's/\r$//' | bash
+curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/install.sh | sed 's/\r$//' | bash
+# REMOVIDO - Agora via django_setup() - /root/.venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
 display_success_message
 sudo rm -rf /root/item
 sudo rm -f /root/item/mysqlPassword
