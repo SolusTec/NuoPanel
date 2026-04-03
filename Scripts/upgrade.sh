@@ -13,6 +13,14 @@ echo -e "${GREEN}=========================================="
 echo "NuoPanel Smart Upgrade Script v2.0"
 echo "==========================================${NC}"
 
+# Check and install jq if not present
+if ! command -v jq &> /dev/null; then
+    echo -e "${YELLOW}Installing jq...${NC}"
+    apt-get update -qq
+    apt-get install -y jq > /dev/null 2>&1
+    echo -e "${GREEN}✅ jq installed${NC}"
+fi
+
 # Detect project directory
 HOME_PATH_FILE="/etc/nuopanel/base_dir"
 if [ -f "$HOME_PATH_FILE" ]; then
@@ -60,7 +68,7 @@ unzip -o "$DOWNLOAD_PATH" -d "$TEMP_DIR" > /dev/null
 echo -e "${GREEN}✅ Package extracted${NC}"
 echo ""
 
-# Step 4: Read manifest (CORRIGIDO - sem panel_update/)
+# Step 4: Read manifest
 echo -e "${GREEN}Step 4: Reading manifest.json...${NC}"
 MANIFEST="$TEMP_DIR/manifest.json"
 
@@ -99,7 +107,7 @@ for i in $(seq 0 $((COMPONENT_COUNT - 1))); do
     EXCLUDE_FILE="/tmp/exclude_${NAME}.txt"
     echo "$PRESERVE" > "$EXCLUDE_FILE"
     
-    # Sync files (CORRIGIDO - caminho sem panel_update/)
+    # Sync files
     rsync -a --exclude-from="$EXCLUDE_FILE" \
         "$TEMP_DIR/$SOURCE" "$DEST" 2>/dev/null || true
     
