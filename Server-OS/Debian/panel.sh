@@ -875,7 +875,7 @@ django_setup() {
     
     # 4. Instalar OLSApp
     echo "Installing OLSApp..."
-    /root/.venv/bin/python manage.py install_olsapp
+    /root/.venv/bin/python manage.py install_softaculous
     
     deactivate
     cd -
@@ -1227,7 +1227,7 @@ replace_python_in_cron_and_service() {
         echo "Restarting the cp service..."
         systemctl restart cp.service
         # REMOVIDO - Agora via django_setup() -         "$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py reset_admin_password "$(get_password_from_file "/root/db_credentials_panel.txt")"
-	# REMOVIDO - Agora via django_setup() - 	"$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
+	# REMOVIDO - Agora via django_setup() - 	"$VENV_PYTHON" /usr/local/lsws/Example/html/nuopanel/manage.py install_softaculous
         echo "Successfully updated cron job and systemd service to use virtual environment Python."
    
 }
@@ -1357,7 +1357,7 @@ sudo /usr/local/lsws/bin/lswsctrl restart
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/swap.sh | sed 's/\r$//' | bash
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/database_update.sh | sed 's/\r$//' | bash
 curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/install.sh | sed 's/\r$//' | bash
-# REMOVIDO - Agora via django_setup() - /root/.venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py install_olsapp
+# REMOVIDO - Agora via django_setup() - /root/.venv/bin/python /usr/local/lsws/Example/html/nuopanel/manage.py install_softaculous
 display_success_message
 sudo rm -rf /root/item
 sudo rm -f /root/item/mysqlPassword

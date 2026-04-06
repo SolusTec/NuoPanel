@@ -35,8 +35,8 @@ run_py() {
         PYTHON_CMD="/root/.venv/bin/python3.12"
     fi
 
-    echo "Trying $PYTHON_CMD $PROJECT_DIR/manage.py install_softaculous"
-    $PYTHON_CMD $PROJECT_DIR/manage.py install_softaculous
+    echo "Trying $PYTHON_CMD $PROJECT_DIR/manage.py install_olsapp"
+    $PYTHON_CMD $PROJECT_DIR/manage.py install_olsapp
     local STATUS=$?
 
     if [[ $STATUS -ne 0 ]]; then
@@ -51,8 +51,8 @@ run_py() {
 
         for alt_python in "${FALLBACKS[@]}"; do
             if [[ -x "$alt_python" ]]; then
-                echo "Trying fallback: $alt_python $PROJECT_DIR/manage.py install_softaculous"
-                $alt_python $PROJECT_DIR/manage.py install_softaculous
+                echo "Trying fallback: $alt_python $PROJECT_DIR/manage.py install_olsapp"
+                $alt_python $PROJECT_DIR/manage.py install_olsapp
                 STATUS=$?
                 if [[ $STATUS -eq 0 ]]; then
                     echo "Succeeded with fallback: $alt_python"
@@ -71,20 +71,20 @@ run_py() {
 
 create_nuopanel_conf() {
     CONF_DIR="/usr/local/nuopanel/nuopanel/plugin"
-    CONF_FILE="$CONF_DIR/softaculous.conf"
+    CONF_FILE="$CONF_DIR/nuopanel-app.conf"
 
-    echo "Creating Softaculous plugin config..."
+    echo "Creating nuopanel-app plugin config..."
 
     mkdir -p "$CONF_DIR"
 
     cat > "$CONF_FILE" <<'CONFEOF'
 # The Displayname.
-name=Softaculous
+name=NuoPanelApp
 
 # The application's service.
 service=both
 
-url=/3rdparty/softaculous/index.php 
+url=/3rdparty/nuopanel-app/index.php 
 
 header[HTTP_AUTOLOGINUSER]=%dbusername%
 header[HTTP_AUTOLOGINPASS]=%dbuserpass% 
@@ -94,10 +94,10 @@ user=root
 group=root 
 
 # Features required
-features=softaculous
+features=nuopanel-app
 
 # Media  required
-icon=/media/icon/softaculous.png 
+icon=/media/icon/nuopanel-app.png 
 
 #short
 sorder=99
@@ -110,22 +110,22 @@ CONFEOF
 }
 
 install_olsapp() {
-    ZIP_URL="https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Assets/softaculous.zip?ts=$(date +%s)"
+    ZIP_URL="https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Assets/olsapp.zip?ts=$(date +%s)"
 
     # If project is default nuopanel path
     if [ "$PROJECT_DIR" = "/usr/local/nuopanel/nuopanel" ]; then
-        DEST_DIR="/usr/local/nuopanel/nuopanel/3rdparty/softaculous"
-        ZIP_FILE="/usr/local/nuopanel/nuopanel/3rdparty/softaculous.zip"
+        DEST_DIR="/usr/local/nuopanel/nuopanel/3rdparty/nuopanel-app"
+        ZIP_FILE="/usr/local/nuopanel/nuopanel/3rdparty/nuopanel-app.zip"
         
     else
-        DEST_DIR="$PROJECT_DIR/3rdparty/softaculous"
-        ZIP_FILE="$PROJECT_DIR/3rdparty/softaculous.zip"
+        DEST_DIR="${PROJECT_DIR%/*}/nuopanel-app"
+        ZIP_FILE="${PROJECT_DIR%/*}/nuopanel-app.zip"
     fi
 
-    echo "Downloading Softaculous..."
+    echo "Downloading nuopanel-app..."
     wget -O "$ZIP_FILE" "$ZIP_URL" --no-cache --no-cookies
 
-    echo "Extracting Softaculous..."
+    echo "Extracting nuopanel-app..."
     mkdir -p "$DEST_DIR"
     unzip -o "$ZIP_FILE" -d "$DEST_DIR"
     rm -f "$ZIP_FILE"
@@ -135,9 +135,9 @@ if [ "$PROJECT_DIR" = "/usr/local/nuopanel/nuopanel" ]; then
     wget -O "$DEST_DIR/conf.php" "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/conf_for_bin.ph" --no-cache --no-cookies
     chown -R nuopanel:nuopanel $DEST_DIR
 else
-    chown -R nuopanel:nuopanel $DEST_DIR
+    chown -R nuopanel:nuopanel ${PROJECT_DIR%/*}/nuopanel-app
 fi
-    echo "Softaculous installed at: $DEST_DIR"
+    echo "nuopanel-app installed at: $DEST_DIR"
 }
 
 
@@ -151,3 +151,4 @@ else
 fi
 
 
+chown -R nuopanel:nuopanel /usr/local/lsws/Example/html/nuopanel-app 2>/dev/null || true

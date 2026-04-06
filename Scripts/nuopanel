@@ -59,8 +59,8 @@ case "$1" in
         com="limit_check"
         shift
         ;;
-    --olsapp-install)
-        com="install_olsapp"
+    --softaculous-install)
+        com="install_softaculous"
         shift
         ;;
     adduser)
@@ -180,7 +180,7 @@ case "$1" in
         echo "  --backup [args...]      Run backup"
         echo "  --fail2ban [args...]    Run fail2ban"
         echo "  --limit-check [args...] Run limit check"
-        echo "  --olsapp-install [args...] Install OLS app"
+        echo "  --softaculous-install [args...] Install Softaculous"
         echo "  --plugin-install FILE   Install plugin"
         echo "  --reset-password        Reset admin password"
         echo "  adduser [args...]       Create user (maps to 'nuopanel adduser')"

@@ -1,29 +1,9 @@
 <?php
-
-
-
-if(!defined('olsapp')){
-
+if(!defined('softaculous')){
 	die('Unwanted Attempt');
-
 }
-
-$globals['path'] = '/usr/local/nuopanel/nuopanel/3rdparty/olsapp';
-$globals['scripts'] = '/usr/local/nuopanel/nuopanel/3rdparty/olsapp/apps';
-$globals['sn'] = 'olsapp';
-$globals['cookie_name'] = 'olsappCookies17';
+$globals['path'] = '/usr/local/nuopanel/nuopanel/3rdparty/softaculous';
+$globals['scripts'] = '/usr/local/nuopanel/nuopanel/3rdparty/softaculous/apps';
+$globals['sn'] = 'softaculous';
+$globals['cookie_name'] = 'softaculousCookies17';
 $globals['gzip'] = 1;
-$globals['language'] = 'english';
-$globals['soft_email'] = 'hostbdfree@gmail.com';
-$globals['from_email'] = NULL;
-$globals['theme_folder'] = 'default';
-$globals['timezone'] = 0;
-$globals['mail'] = 1;
-$globals['off'] = 0;
-$globals['off_subject'] = '';
-$globals['off_message'] = '';
-$globals['update'] = 1;
-$globals['email_update'] = 1;
-$globals['email_update_softs'] = 1;
-
-
