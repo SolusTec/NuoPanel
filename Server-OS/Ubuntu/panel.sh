@@ -849,8 +849,6 @@ copy_mysql_password() {
     echo "File copied successfully from '$source_file' to '$target_file'."
 }
 
-    sudo systemctl restart cp
-}
 set_ownership_and_permissions() {
     sudo chown -R www-data:www-data /usr/local/lsws/Example/html/phpmyadmin 
     sudo chmod -R 755 /usr/local/lsws/Example/html/phpmyadmin 
