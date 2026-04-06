@@ -855,13 +855,8 @@ set_ownership_and_permissions() {
 
     sudo chown -R www-data:www-data /usr/local/lsws/Example/html/nuopanel
     sudo chmod -R 755 /usr/local/lsws/Example/html/nuopanel
-    sudo chown -R www-data:www-data /usr/local/lsws/Example/html/webmail
-    sudo chmod -R 755 /usr/local/lsws/Example/html/webmail
-    sudo groupadd nobody
-    sudo groupadd nuopanel
-    sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data
-    sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data
-    sudo chmod -R 755 /usr/local/lsws/Example/html/webmail/data
+    sudo groupadd nobody 2>/dev/null || true
+    sudo groupadd nuopanel 2>/dev/null || true
     echo "Ownership and permissions set successfully for all specified directories."
 }
 add_backup_cronjobs() {
@@ -1292,8 +1287,6 @@ sudo apt-get install libwww-perl -y
 sudo systemctl stop systemd-resolved >/dev/null 2>&1
 sudo systemctl disable systemd-resolved >/dev/null 2>&1
 systemctl restart systemd-networkd >/dev/null 2>&1
-sudo chown -R nobody:nobody /usr/local/lsws/Example/html/webmail/data
-sudo chmod -R 755 /usr/local/lsws/Example/html/webmail/data
 sudo postmap /etc/postfix/script_filter
 sudo postmap /etc/postfix/vmail_ssl.map
 mkdir -p /etc/opendkim
