@@ -844,7 +844,6 @@ copy_mysql_password() {
         echo "Failed to copy '$source_file' to '$target_file'. Exiting."
         return 1
     fi
-	sudo systemctl restart cp
 
     echo "File copied successfully from '$source_file' to '$target_file'."
 }

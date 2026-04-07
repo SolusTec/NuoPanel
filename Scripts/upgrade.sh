@@ -1,188 +1,205 @@
 #!/bin/bash
-# NuoPanel Simple Upgrade Script v1.4
 
-set -e
+# ============================================================
+# NuoPanel Upgrade Script
+# Atualiza instalações existentes do NuoPanel
+# ============================================================
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-SELF_REMOVE_PATH="/usr/local/lsws/Example/html/upgrade.sh"
-
-cleanup_self() {
-
-    if [ -f "$SELF_REMOVE_PATH" ]; then
-        rm -f "$SELF_REMOVE_PATH"
-        echo "Self removed: $SELF_REMOVE_PATH"
-    fi
-
-}
-
-# python path
-PYTHON_PATH="/root/.venv/bin/python"
-
-if [ ! -x "$PYTHON_PATH" ]; then
-    PYTHON_PATH=$(which python3)
-fi
-
-echo -e "${GREEN}=========================================="
-echo "NuoPanel Upgrade Script v1.4"
-echo "==========================================${NC}"
-
-# ensure rsync exists
-if ! command -v rsync >/dev/null 2>&1; then
-    echo -e "${YELLOW}Installing rsync...${NC}"
-    apt-get update -y >/dev/null 2>&1
-    apt-get install -y rsync >/dev/null 2>&1
-fi
-
-# detect project dir
-if [ -f "/etc/nuopanel/base_dir" ]; then
-    PROJECT_DIR="$(cat /etc/nuopanel/base_dir)"
+# Detectar diretório do projeto
+HOME_PATH_FILE="/etc/nuopanel/base_dir"
+if [ -f "$HOME_PATH_FILE" ]; then
+    PROJECT_DIR="$(cat "$HOME_PATH_FILE")"
 else
     PROJECT_DIR="/usr/local/lsws/Example/html/nuopanel"
 fi
 
-BACKUP_DIR="/root/nuopanel_backups"
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-TEMP_DIR="/tmp/nuopanel_update_$TIMESTAMP"
-BACKUP_FILE="$BACKUP_DIR/backup_$TIMESTAMP.tar.gz"
+# Detectar sistema operacional
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    OS_NAME=$ID
+    OS_VERSION=${VERSION_ID%%.*}
+elif [ -f /etc/centos-release ]; then
+    OS_NAME="centos"
+    OS_VERSION=$(awk '{print $4}' /etc/centos-release | cut -d. -f1)
+fi
 
-rollback() {
-
-    echo ""
-    echo -e "${RED}ERROR detected, starting rollback...${NC}"
-
-    if [ -f "$BACKUP_FILE" ]; then
-        tar -xzf "$BACKUP_FILE" -C /
-        echo -e "${GREEN}Rollback completed${NC}"
+# Determinar gerenciador de pacotes
+if [[ "$OS_NAME" == "ubuntu" || "$OS_NAME" == "debian" ]]; then
+    PACKAGE_MANAGER="apt"
+elif [[ "$OS_NAME" =~ ^(centos|almalinux|rhel|fedora|rocky|oraclelinux)$ ]]; then
+    if command -v dnf &>/dev/null; then
+        PACKAGE_MANAGER="dnf"
     else
-        echo -e "${RED}Backup not found${NC}"
+        PACKAGE_MANAGER="yum"
     fi
-
-    # remove gatilho interno novamente
-    rm -f "$PROJECT_DIR/etc/update"
-    rm -f "$PROJECT_DIR/etc/update.zip"
-    rm -f "$PROJECT_DIR/etc/update.tar.gz"
-
-    cleanup_self
+else
+    echo "Sistema operacional não suportado"
     exit 1
+fi
+
+# Agendar execução com delay (evita problemas com curl | bash)
+if [[ "$0" == /* ]]; then
+    sudo ${PACKAGE_MANAGER} install at -y
+    sudo systemctl start atd
+    sudo systemctl enable --now atd
+    echo "curl -sSL https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/upgrade.sh | sed 's/\r\$//' | bash" | at now + 1 minute
+    exit 0
+fi
+
+echo "============================================================"
+echo "   NuoPanel - Iniciando atualização"
+echo "============================================================"
+
+# Salvar informações do sistema
+echo -n "$OS_NAME" > $PROJECT_DIR/etc/osName
+echo -n "$OS_VERSION" > $PROJECT_DIR/etc/osVersion
+
+# ============================================================
+# FUNÇÕES AUXILIARES
+# ============================================================
+
+remove_extra_cron_lines() {
+    crontab -l 2>/dev/null | grep -v '^[[:space:]]*$' | sort | uniq | crontab -
+    echo "✓ Linhas extras do cron removidas"
 }
 
-trap rollback ERR
+add_cronjobs() {
+    local CRON_JOBS=(
+        "* * * * * /usr/local/bin/nuopanel --fail2ban >/dev/null 2>&1"
+    )
 
-echo -e "${YELLOW}Project: $PROJECT_DIR${NC}"
+    local CURRENT_CRON
+    CURRENT_CRON=$(crontab -l 2>/dev/null || true)
 
-# backup
-echo -e "${GREEN}[1/6] Backup${NC}"
+    for JOB in "${CRON_JOBS[@]}"; do
+        if ! grep -Fq "$JOB" <<< "$CURRENT_CRON"; then
+            CURRENT_CRON+=$'\n'"$JOB"
+        fi
+    done
 
-mkdir -p "$BACKUP_DIR"
+    printf "%s\n" "$CURRENT_CRON" | crontab -
+    remove_extra_cron_lines
+    echo "✓ Cron jobs atualizados"
+}
 
-tar -czf "$BACKUP_FILE" \
-"$PROJECT_DIR" \
-/usr/local/lsws/Example/html/phpmyadmin \
-2>/dev/null
+update_php_versions() {
+    echo "Atualizando versões PHP..."
+    
+    for version in 74 80 81 82 83 84 85; do
+        if [ -x "/usr/local/lsws/lsphp$version/bin/php" ]; then
+            php_version=$(echo "$version" | awk '{print substr($0,1,1) "." substr($0,2,1)}')
+            
+            ini_file_path="/usr/local/lsws/lsphp$version/etc/php/$php_version/litespeed/php.ini"
+            ini_file_path_old="/usr/local/lsws/lsphp$version/etc/php.ini"
+            
+            if [ -f "$ini_file_path" ]; then
+                target_ini="$ini_file_path"
+            elif [ -f "$ini_file_path_old" ]; then
+                target_ini="$ini_file_path_old"
+            else
+                continue
+            fi
+            
+            sudo sed -i 's/^disable_functions\s*=.*/disable_functions = pcntl_alarm,pcntl_fork,pcntl_waitpid,pcntl_wait,pcntl_wifexited,pcntl_wifstopped,pcntl_wifsignaled,pcntl_wifcontinued,pcntl_wexitstatus,pcntl_wtermsig,pcntl_wstopsig,pcntl_signal,pcntl_signal_get_handler,pcntl_signal_dispatch,pcntl_get_last_error,pcntl_strerror,pcntl_sigprocmask,pcntl_sigwaitinfo,pcntl_sigtimedwait,pcntl_exec,pcntl_getpriority,pcntl_setpriority,pcntl_async_signals,pcntl_unshare/' "$target_ini"
+        fi
+    done
+    
+    pkill lsphp 2>/dev/null || true
+    echo "✓ Versões PHP atualizadas"
+}
 
-echo "OK backup"
-
-# download
-echo -e "${GREEN}[2/6] Download update${NC}"
-
-UPDATE_URL="https://github.com/SolusTec/NuoPanel/raw/main/Assets/panel_update.zip"
-
-wget -q -O /tmp/panel_update.zip "$UPDATE_URL?t=$(date +%s)"
-
-if [ ! -f /tmp/panel_update.zip ]; then
-    echo "download failed"
-    exit 1
-fi
-
-echo "OK download"
-
-# extract
-echo -e "${GREEN}[3/6] Extract${NC}"
-
-rm -rf "$TEMP_DIR"
-mkdir -p "$TEMP_DIR"
-
-unzip -q /tmp/panel_update.zip -d "$TEMP_DIR"
-
-echo "OK extract"
-
-# rsync update
-echo -e "${GREEN}[4/6] Apply files${NC}"
-
-rsync -a \
---exclude='usr/local/lsws/Example/html/nuopanel/etc/mysqlPassword' \
---exclude='usr/local/lsws/Example/html/nuopanel/etc/ip' \
---exclude='usr/local/lsws/Example/html/nuopanel/etc/osName' \
---exclude='usr/local/lsws/Example/html/nuopanel/etc/osVersion' \
---exclude='usr/local/lsws/Example/html/nuopanel/etc/conf.ini' \
---exclude='usr/local/lsws/Example/html/nuopanel/db.sqlite3' \
---exclude='usr/local/lsws/Example/html/nuopanel/media/uploads/**' \
---exclude='usr/local/lsws/Example/html/nuopanel/logs/**' \
---exclude='usr/local/lsws/Example/html/phpmyadmin/config.inc.php' \
---exclude='usr/local/lsws/Example/html/nuopanel/3rdparty/roundcube/config/config.inc.php' \
---exclude='usr/local/lsws/Example/html/nuopanel/3rdparty/rainloop/data/**' \
-"$TEMP_DIR/" /
-
-echo "OK rsync"
-
-# remove gatilho interno
-rm -f "$PROJECT_DIR/etc/update"
-rm -f "$PROJECT_DIR/etc/update.zip"
-rm -f "$PROJECT_DIR/etc/update.tar.gz"
-
-# migrate
-echo -e "${GREEN}[5/6] Django migrate${NC}"
-
-cd "$PROJECT_DIR"
-
-set +e
-
-$PYTHON_PATH manage.py migrate --fake
-STATUS1=$?
-
-$PYTHON_PATH manage.py migrate
-STATUS2=$?
-
-set -e
-
-if [ $STATUS1 -ne 0 ] || [ $STATUS2 -ne 0 ]; then
-    exit 1
-fi
-
-echo "OK migrate"
-
-# restart
-echo -e "${GREEN}[6/6] Restart services${NC}"
-
-systemctl restart cp 2>/dev/null || true
-sleep 2
-/usr/local/lsws/bin/lswsctrl restart
-
-echo "OK restart"
-
-# cleanup
-rm -rf "$TEMP_DIR"
-rm -f /tmp/panel_update.zip
-
-# remove gatilho novamente (garantia)
-rm -f "$PROJECT_DIR/etc/update"
-rm -f "$PROJECT_DIR/etc/update.zip"
-rm -f "$PROJECT_DIR/etc/update.tar.gz"
-
-VERSION=$(cat "$PROJECT_DIR/etc/version" 2>/dev/null || echo unknown)
+# ============================================================
+# ATUALIZAÇÃO PRINCIPAL
+# ============================================================
 
 echo ""
-echo "Update finished"
-echo "Version: $VERSION"
-echo "Backup: $BACKUP_FILE"
+echo "▶ Baixando atualização do NuoPanel..."
 
-cleanup_self
+# Baixar panel_setup.zip atualizado
+wget -q --show-progress -O ${PROJECT_DIR%/*}/panel_setup.zip \
+    "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Assets/panel_setup.zip?$(date +%s)"
 
-# encerra processo que chamou o updater interno
-pkill -f "manage.py check_version" 2>/dev/null || true
+if [ $? -ne 0 ]; then
+    echo "✗ Erro ao baixar panel_setup.zip"
+    exit 1
+fi
 
-exit 0
+echo "✓ Download concluído"
+
+# Descompactar e sobrescrever arquivos
+echo ""
+echo "▶ Instalando arquivos atualizados..."
+sudo unzip -oq ${PROJECT_DIR%/*}/panel_setup.zip -d ${PROJECT_DIR%/*}
+
+if [ $? -ne 0 ]; then
+    echo "✗ Erro ao descompactar arquivos"
+    exit 1
+fi
+
+echo "✓ Arquivos instalados"
+
+# Aplicar migrations Django
+echo ""
+echo "▶ Aplicando atualizações do banco de dados..."
+
+cd $PROJECT_DIR
+source /root/.venv/bin/activate
+
+# Aplicar migrations automaticamente
+python manage.py migrate --noinput
+
+if [ $? -ne 0 ]; then
+    echo "✗ Erro ao aplicar migrations do Django"
+    deactivate
+    exit 1
+fi
+
+deactivate
+echo "✓ Banco de dados atualizado"
+
+# ============================================================
+# SCRIPTS AUXILIARES
+# ============================================================
+
+echo ""
+echo "▶ Executando scripts auxiliares..."
+
+# Swap, firewall e utilitários
+curl -sSL "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/swap.sh?$(date +%s)" | sed 's/\r$//' | bash
+
+# Configuração SSL
+curl -sSL "https://raw.githubusercontent.com/SolusTec/NuoPanel/main/Scripts/ssl.sh?$(date +%s)" | sed 's/\r$//' | bash
+
+# Adicionar cron jobs
+add_cronjobs
+
+# Atualizar PHP (opcional, descomente se necessário)
+# update_php_versions
+
+echo "✓ Scripts auxiliares executados"
+
+# ============================================================
+# FINALIZAÇÃO
+# ============================================================
+
+echo ""
+echo "▶ Reiniciando serviços..."
+
+sudo systemctl restart cp 2>/dev/null || true
+sudo /usr/local/lsws/bin/lswsctrl restart 2>/dev/null || true
+
+echo "✓ Serviços reiniciados"
+
+# Obter versão atualizada
+if [ -f "$PROJECT_DIR/etc/version" ]; then
+    CURRENT_VERSION=$(cat "$PROJECT_DIR/etc/version")
+else
+    CURRENT_VERSION="desconhecida"
+fi
+
+echo ""
+echo "============================================================"
+echo "   ✓ Atualização concluída com sucesso!"
+echo "   Versão atual: $CURRENT_VERSION"
+echo "============================================================"
+echo ""
